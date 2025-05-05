@@ -1,0 +1,92 @@
+# Configuration file for media_organizer scripts
+# Located in config/paths.txt
+# Sections: [general], [series], [meta_providers], [kodi], [tmdb], [trakt], [tvmaze], [rotten_tomatoes], [thresholds]
+# Add new series under [series], providers under [meta_providers], and adjust thresholds under [thresholds]
+
+[general]
+# Relative path for JSON output (e.g., data/the_a_team/The_A-Team.json)
+JSON_FOLDER = data
+
+# Relative path for logs (e.g., logs/the_a_team/season_episode_builder.log)
+LOG_PATH = logs
+
+# Relative path for temporary files
+TEMP_FOLDER = tmp
+
+# Operational settings for file_organizer.py and kodi_db_exporter.py
+USE_KODI = true
+USE_NEXTPVR = true
+OPERATION_MODE = move
+CREATE_NFO = true
+
+[series]
+# Add series as series_name_X = <name>, series_path_X = <path>
+# Example: series_name_8 = New Series, series_path_8 = D:/Recordings/New Series
+series_name_1 = The A-Team
+series_path_1 = D:/NEXT PVR/RecordingDirectory/The A-Team
+series_name_2 = Ax Men
+series_path_2 = D:/NEXT PVR/RecordingDirectory/Ax Men
+series_name_3 = FBI
+series_path_3 = D:/NEXT PVR/RecordingDirectory/FBI
+series_name_4 = Mission Impossible
+series_path_4 = D:/NEXT PVR/RecordingDirectory/Mission Impossible
+series_name_5 = The F.B.I
+series_path_5 = D:/NEXT PVR/RecordingDirectory/The F.B.I
+series_name_6 = Ancient Top 10
+series_path_6 = D:/NEXT PVR/RecordingDirectory/Ancient Top 10
+series_name_7 = Ancient Engineering
+series_path_7 = D:/NEXT PVR/RecordingDirectory/Ancient Engineering
+
+[meta_providers]
+# Format for Class Based providers: <provider_name> = enabled,<priority number>,<module_path>,<class_name>
+# Format for Function based providers: <provider_name> = enabled,<priority number>,<module_path>
+providerc_tvmaze = enabled
+providerf_tvmaze = enabled 
+providerc_tmdb = enabled 
+providerf_tmdb = enabled
+providerc_trakt = enabled
+providerf_trakt = enabled 
+providerc_rotten_tomatoes = enabled 
+providerf_rotten_tomatoes = enabled
+
+[kodi]
+# Settings for kodi_db_exporter.py
+KODI_IP = 192.168.0.127
+KODI_METADATA_TEMPLATE = data/kodi_export.json
+ADB_PATH =
+
+[tmdb]
+# API settings for tmdb_provider.py
+TMDB_API_KEY = <tmdb api key>
+TMDB_PASSWORD = <tmdb password>
+
+[trakt]
+# API settings for trakt_provider.py
+TRAKT_CLIENT_ID = <trakt Client ID>
+TRAKT_CLIENT_SECRET = <trakt Client Secret>
+
+[tvmaze]
+# API settings for tvmaze_provider.py
+TVMAZE_API_KEY = <tvmaze api key>
+
+[rotten_tomatoes]
+# Settings for rotten_tomatoes_provider.py
+SCRAPE_DELAY = 0.5
+SEARCH_API_URL = https://serpapi.com/search
+SEARCH_API_KEY =
+
+[thresholds]
+# Matching thresholds for series_folder_crawler.py
+# PASS4_THRESHOLD: Default for 4th pass (higher = stricter, more tokens needed)
+# Per-series thresholds: pass4_threshold_<Series_Name>, pass2_threshold_<Series_Name>, etc.
+PASS4_THRESHOLD = 15
+pass4_threshold_Ax_Men = 12
+pass4_threshold_The_A-Team = 10
+pass4_threshold_Mission_Impossible = 10
+pass2_threshold_Ax_Men = 0.80
+pass3_threshold_Ax_Men = 0.80
+
+[library_paths]
+# Output paths for file_organizer.py
+TV_LIBRARY_PATH = E:/media_library/tv_series
+MOVIE_LIBRARY_PATH = E:/media_library/movies
