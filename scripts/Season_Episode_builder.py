@@ -8,8 +8,11 @@ import sys
 from pathlib import Path
 from configparser import ConfigParser
 
+# Defines the script's version, used in logs and for tracking changes.
 __version__ = "1.0.10"
 
+# Stores the changelog, documenting updates and fixes for each version.
+# Helps track changes like provider loading improvements or bug fixes.
 CHANGELOG = """
 1.0.10 (2025-05-02):
 - Fixed class name mismatch for tvmazec_provider (TvMazeProvider instead of TvmazeProvider)
@@ -55,6 +58,11 @@ CHANGELOG = """
 """
 
 def setup_logging(series_name):
+    # Sets up logging to record script activity (e.g., provider loads, errors).
+    # Creates a log file specific to the series in logs/<series_slug>/.
+    # How: Converts series name to a slug (lowercase, spaces to underscores),
+    # creates the log directory if it doesn’t exist, and configures logging to
+    # write to season_episode_builder.log with timestamps.
     series_slug = series_name.lower().replace(" ", "_")
     log_dir = os.path.join("logs", series_slug)
     os.makedirs(log_dir, exist_ok=True)
@@ -66,9 +74,15 @@ def setup_logging(series_name):
         format="[%(asctime)s] %(message)s",
         datefmt="%Y-%m-%d %H:%M:%S"
     )
+    # Returns the slug for use in other functions (e.g., saving JSON).
     return series_slug
 
 def load_paths():
+    # Loads configuration from config/paths.txt, including provider settings and folders.
+    # How: Uses ConfigParser to read paths.txt, which has sections like [general],
+    # [library_paths], and [meta_providers]. Extracts folder paths (e.g., JSON_FOLDER)
+    # and enabled providers (e.g., providerc_tvmaze=enabled). Logs provider additions
+    # and errors. Returns paths dict, provider list with priorities, and config object.
     paths = {}
     providers = []
     config = ConfigParser()
@@ -89,17 +103,25 @@ def load_paths():
     except Exception as e:
         logging.error(f"Failed to read paths.txt at {paths_file}: {str(e)}")
         raise
+    # Sets default JSON_FOLDER to "data" if not specified.
     paths["JSON_FOLDER"] = paths.get("JSON_FOLDER", "data")
     paths["LOG_PATH"] = paths.get("LOG_PATH", "logs")
     logging.info(f"Loaded {len(providers)} provider configs from paths.txt")
     return paths, providers, config
 
 def load_providers(provider_configs, config):
+    # Loads provider scripts (class-based or function-based) dynamically.
+    # How: Iterates through provider configs from paths.txt (e.g., providerc_tvmaze).
+    # Determines provider type (class or function) from the prefix (providerc_ or providerf_).
+    # Imports the provider module (e.g., providers.tvmazec_provider) and loads the class
+    # or function. Logs successes and failures. Returns a list of provider instances,
+    # types, names, and priorities.
     providers = []
     script_dir = Path(__file__).parent
     sys.path.append(str(script_dir))
 
-    # Map provider names to their exact class names
+    # Maps provider names to their class names (e.g., tvmaze -> TvMazeProvider).
+    # Fixes mismatches like TvMazeProvider vs. TvmazeProvider (v1.0.10 changelog).
     provider_class_names = {
         "tvmaze": "TvMazeProvider",
         "tmdb": "TmdbProvider",
@@ -108,7 +130,7 @@ def load_providers(provider_configs, config):
     }
 
     for provider_key, priority in provider_configs:
-        # Extract base provider name (e.g., tvmaze from providerc_tvmaze)
+        # Parses provider key to determine type and name (e.g., providerc_tvmaze -> tvmaze, class).
         if provider_key.startswith("providerc_"):
             provider_name = provider_key.replace("providerc_", "")
             provider_type = "class"
@@ -123,13 +145,14 @@ def load_providers(provider_configs, config):
 
         provider_instance = None
 
-        # Load provider
+        # Attempts to load the provider module and instance.
         try:
             module_path = f"providers.{module_name}"
             logging.info(f"Attempting to import {module_path}")
             module = importlib.import_module(module_path)
 
             if provider_type == "class":
+                # For class-based providers, gets the class (e.g., TvMazeProvider) and creates an instance.
                 class_name = provider_class_names.get(provider_name, f"{provider_name.capitalize()}Provider")
                 provider_class = getattr(module, class_name, None)
                 if provider_class:
@@ -139,6 +162,7 @@ def load_providers(provider_configs, config):
                     logging.error(f"No class {class_name} found in {module_path}")
                     continue
             else:
+                # For function-based providers, gets the get_metadata function.
                 get_metadata_func = getattr(module, "get_metadata", None)
                 if get_metadata_func:
                     provider_instance = get_metadata_func
@@ -155,10 +179,16 @@ def load_providers(provider_configs, config):
     return providers
 
 def fetch_metadata(series_name, providers, config):
+    # Fetches metadata from all providers and merges it into a single structure.
+    # How: Initializes a metadata dict with series_name and empty seasons.
+    # Ensures the temp folder (from paths.txt) exists. For each provider:
+    # - Class-based: Calls get_series_metadata, gets data directly.
+    # - Function-based: Calls get_metadata, reads tmp/providerf_<name>.json.
+    # Merges seasons and episodes, logs progress, and sorts the result.
     metadata = {"series_name": series_name, "seasons": []}
     temp_folder = config["general"]["TEMP_FOLDER"]
 
-    # Ensure temp folder exists
+    # Creates temp folder if it doesn’t exist (v1.0.10 fix).
     os.makedirs(temp_folder, exist_ok=True)
     logging.info(f"Ensured temp folder exists: {temp_folder}")
 
@@ -167,10 +197,10 @@ def fetch_metadata(series_name, providers, config):
         logging.info(f"Fetching metadata from provider: {provider_key} ({provider_type})")
         try:
             if provider_type == "class":
-                # Class-based provider: call get_series_metadata
+                # Calls the provider’s get_series_metadata method (e.g., TvMazeProvider.get_series_metadata).
                 provider_data = provider_instance.get_series_metadata(series_name)
             else:
-                # Function-based provider: call get_metadata, read temp file
+                # Calls the provider’s get_metadata function, which writes to a temp file.
                 try:
                     provider_instance(series_name, config)
                 except Exception as e:
@@ -184,7 +214,7 @@ def fetch_metadata(series_name, providers, config):
                     logging.warning(f"No temp file found for providerf_{provider_name} at {temp_file}")
                     continue
 
-            # Merge seasons and episodes
+            # Merges provider data into metadata, combining seasons and episodes.
             for season_num, episodes in provider_data.get("seasons", {}).items():
                 season_num = int(season_num)
                 existing_season = next((s for s in metadata["seasons"] if s["season_number"] == season_num), None)
@@ -201,7 +231,7 @@ def fetch_metadata(series_name, providers, config):
         except Exception as e:
             logging.error(f"Error fetching from {provider_key} ({provider_type}): {str(e)}")
 
-    # Sort seasons and episodes
+    # Sorts seasons by number and episodes by episode number for consistency.
     metadata["seasons"].sort(key=lambda x: x["season_number"])
     for season in metadata["seasons"]:
         season["episodes"].sort(key=lambda x: x["episode_number"])
@@ -209,6 +239,9 @@ def fetch_metadata(series_name, providers, config):
     return metadata
 
 def save_metadata(series_name, metadata, json_folder):
+    # Saves the merged metadata to data/<series_slug>/<series_name>.json.
+    # How: Creates the output directory (e.g., data/the_a_team/), writes the metadata
+    # as JSON with indentation, and logs the save. Uses the series slug for the folder.
     series_slug = series_name.lower().replace(" ", "_")
     output_dir = os.path.join(json_folder, series_slug)
     os.makedirs(output_dir, exist_ok=True)
@@ -219,6 +252,10 @@ def save_metadata(series_name, metadata, json_folder):
     logging.info(f"Saved metadata to {output_path}")
 
 def main():
+    # Entry point for the script, handling command-line arguments and workflow.
+    # How: Parses the --series argument (e.g., "The A-Team"), sets up logging,
+    # loads paths and providers, fetches metadata, and saves it. Logs the start
+    # and checks for provider loading success.
     parser = argparse.ArgumentParser(description="Build episode metadata for a series")
     parser.add_argument("--series", required=True, help="Name of the series (e.g., The A-Team)")
     args = parser.parse_args()
