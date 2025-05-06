@@ -5,6 +5,7 @@ Overview
 Purpose: Define how scripts work together to pull Kodi data, process NextPVR recordings, fetch metadata, match files, organize files, update the NextPVR database, and generate comskip files.
 Scripts: Core scripts in scripts/ and provider scripts in scripts/providers/.
 Reference: Mandatory for development to ensure correct imports, file paths, and JSON keys.
+Providers: Currently supports 8 providers from four sources (TVMaze, TMDb, Trakt, Rotten Tomatoes), covering nearly 100% of tested series metadata (season/episode, titles, overviews, air dates). Providers are class-based (provider_namec_provider.py, class provider_namecprovider, keys like provider_namec, e.g., tvmazec) or function-based (provider_namef_provider.py, keys like provider_namef, e.g., tvmazef). New providers can be added by creating scripts and enabling in config/paths.txt.
 
 Scripts and Relationships
 1. Season_Episode_builder.py
@@ -12,18 +13,22 @@ Scripts and Relationships
 Purpose: Fetches TV series metadata from multiple providers and builds episode metadata (Action 3 in requirements.md).
 Functionality:
 Reads config/paths.txt for provider settings (e.g., providerc_tvmaze=enabled, TVMAZE_API_KEY).
-Currently Loads 8 providers: providerc_tvmaze, providerf_tvmaze, providerc_tmdb, providerf_tmdb, providerc_trakt, providerf_trakt, providerc_rotten_tomatoes, providerf_rotten_tomatoes.
-Calls provider scripts to fetch metadata (e.g., episode titles, descriptions).
-Merges data into data/the_a_team/The_A-Team.json with keys: series_name, seasons (array of season_number, episodes with episode_number, titles, overviews, ids).
-Writes temporary files to tmp/provider_<name>.json (e.g., tmp/provider_tvmaze.json).
+Currently loads 8 providers: providerc_tvmaze, providerf_tvmaze, providerc_tmdb, providerf_tmdb, providerc_trakt, providerf_trakt, providerc_rotten_tomatoes, providerf_rotten_tomatoes. Providers can be added (new scripts) or disabled in paths.txt.
+Supports two provider types:
+Class-based (provider_namec_provider.py, e.g., tvmazec_provider.py): Uses a class named provider_namecprovider (e.g., tvmazecprovider in v1.0.11).
+Function-based (provider_namef_provider.py, e.g., tvmazef_provider.py): Uses a get_metadata function.
+
+
+Calls providers to fetch metadata (e.g., episode titles, descriptions).
+Merges data into data/the_a_team/The_A-Team.json with keys: series_name, seasons (array of season_number, episodes with episode_number, titles like {"providerc_tvmaze": "Mexican Slayride: Part 1"}, overviews, ids).
+Writes temporary files to tmp/providerf_<name>.json for function-based providers.
 
 
 Calls:
-json_utils.py: Uses format_builder_json to write The_A-Team.json.
 Provider Scripts (in scripts/providers/):
-tvmazec_provider.py: Class-based, called via TvMazeProvider.process(series_name).
-tvmazef_provider.py: Function-based, called via process_tvmaze_metadata(series_name, temp_folder, config).
-tmdbc_provider.py, tmdbf_provider.py, traktc_provider.py, traktf_provider.py, rotten_tomatoesc_provider.py, rotten_tomatoesf_provider.py: Similar class/function calls.
+tvmazec_provider.py: Calls tvmazecprovider.get_series_metadata(series_name).
+tvmazef_provider.py: Calls get_metadata(series_name, config), reads tmp/providerf_tvmaze.json.
+Similarly for tmdbc_provider.py (tmdbcprovider), tmdbf_provider.py, traktc_provider.py (traktcprovider), traktf_provider.py, rotten_tomatoesc_provider.py (rotten_tomatoescprovider), rotten_tomatoesf_provider.py.
 
 
 Inputs:
@@ -33,7 +38,7 @@ Command-line: --series "The A-Team".
 
 Outputs:
 data/the_a_team/The_A-Team.json: Merged metadata.
-tmp/provider_<name>.json: Provider-specific data.
+tmp/providerf_<name>.json: Function-based provider data.
 logs/the_a_team/builder.log: Logs provider loads, errors.
 
 
@@ -45,8 +50,9 @@ seasons: Array with season_number, episodes.
 episodes: Array with episode_number, air_date, titles (e.g., {"providerc_tvmaze": "Mexican Slayride: Part 1"}), overviews, ids.
 
 
-Issues (v1.0.10):
+Issues (v1.0.11):
 providerc_tmdb, providerc_trakt, providerc_rotten_tomatoes fail due to missing format_provider_json in json_utils.py.
+Function-based providers load but produce no tmp/providerf_<name>.json, likely due to get_metadata errors.
 Only providerc_tvmaze data appears in The_A-Team.json.
 
 
@@ -182,7 +188,7 @@ Keys: series_name, episodes, source.
 
 Purpose: Provides utility functions for JSON reading, writing, and formatting (supports all scripts).
 Functionality:
-Functions like format_builder_json, format_provider_json (missing in v1.0.10, causing provider failures).
+Functions like format_provider_json (missing in v1.0.10, causing provider failures).
 Handles JSON standards from requirements.md.
 
 
@@ -198,9 +204,9 @@ Keys: Varies by script (e.g., series_name, episodes).
 Scripts: tvmazec_provider.py, tvmazef_provider.py, tmdbc_provider.py, tmdbf_provider.py, traktc_provider.py, traktf_provider.py, rotten_tomatoesc_provider.py, rotten_tomatoesf_provider.py.
 Purpose: Fetch metadata from APIs or web scraping (Action 3 in requirements.md).
 Functionality:
-Class-based (c_) use a Provider class (e.g., TvMazeProvider).
-Function-based (f_) use process_<name>_metadata functions.
-Write tmp/provider_<name>.json with episode data.
+Class-based (provider_namec_provider.py): Use a class named provider_namecprovider (e.g., tvmazecprovider).
+Function-based (provider_namef_provider.py): Use get_metadata(series_name, config).
+Write tmp/providerf_<name>.json for function-based providers.
 
 
 Called By:
@@ -213,7 +219,7 @@ Series name from Season_Episode_builder.py.
 
 
 Outputs:
-tmp/provider_<name>.json: Episode metadata.
+tmp/providerf_<name>.json: Episode metadata (function-based).
 
 
 Keys:
@@ -229,14 +235,14 @@ Call Flow
 
 kodi_db_exporter.py → kodi_data.json (Action 1).
 series_folder_crawler.py → The_A-Team_Processed.json (Action 2).
-Season_Episode_builder.py → Calls providers → tmp/provider_<name>.json → The_A-Team.json (Action 3).
+Season_Episode_builder.py → Calls providers → tmp/providerf_<name>.json → The_A-Team.json (Action 3).
 match_unmatched.py → Reads The_A-Team.json, The_A-Team_Processed.json, kodi_data.json → Updates The_A-Team_Processed.json (Action 4).
 file_organizer.py → Reads The_A-Team_Processed.json → Creates .nfo, moves files (Action 5).
 process_kodi_data.py → Supports kodi_db_exporter.py or match_unmatched.py.
 
 Notes
 
-json_utils.py is critical for all scripts but needs format_provider_json to fix provider failures.
+json_utils.py is critical but needs format_provider_json to fix provider failures (deferred until class name changes are tested).
 Logs: Each script writes to logs/the_a_team/<script>.log.
-Next Steps: Fix json_utils.py, update provider scripts, test all 8 providers.
+Next Steps: Test v1.0.11 with updated provider class names, debug JSON issue, fix json_utils.py, test all 8 providers.
 
