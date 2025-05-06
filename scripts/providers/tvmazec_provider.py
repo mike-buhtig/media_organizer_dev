@@ -7,7 +7,7 @@ import requests
 import re
 import html
 
-class TvMazeProvider:
+class tvmazecprovider:
     def __init__(self, config):
         self.api_key = config["tvmaze"].get("TVMAZE_API_KEY", "")
         self.config = config

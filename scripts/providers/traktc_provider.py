@@ -11,7 +11,7 @@ import re
 from configparser import ConfigParser
 from json_utils import clean_temp_file, format_provider_json
 
-class TraktProvider:
+class traktcprovider:
     def __init__(self, config: ConfigParser):
         self.config = config
         self.client_id = config["trakt"]["CLIENT_ID"]

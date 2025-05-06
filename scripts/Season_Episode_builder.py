@@ -9,11 +9,15 @@ from pathlib import Path
 from configparser import ConfigParser
 
 # Defines the script's version, used in logs and for tracking changes.
-__version__ = "1.0.10"
+__version__ = "1.0.11"
 
 # Stores the changelog, documenting updates and fixes for each version.
 # Helps track changes like provider loading improvements or bug fixes.
 CHANGELOG = """
+1.0.11 (2025-05-07):
+- Removed hard-coded provider_class_names and capitalization inference
+- Expect class names to match script names (e.g., tvmazec_provider.py -> tvmazecprovider)
+- Maintains function-based provider functionality unchanged
 1.0.10 (2025-05-02):
 - Fixed class name mismatch for tvmazec_provider (TvMazeProvider instead of TvmazeProvider)
 - Added provider_class_names mapping to handle specific class names
@@ -120,15 +124,6 @@ def load_providers(provider_configs, config):
     script_dir = Path(__file__).parent
     sys.path.append(str(script_dir))
 
-    # Maps provider names to their class names (e.g., tvmaze -> TvMazeProvider).
-    # Fixes mismatches like TvMazeProvider vs. TvmazeProvider (v1.0.10 changelog).
-    provider_class_names = {
-        "tvmaze": "TvMazeProvider",
-        "tmdb": "TmdbProvider",
-        "trakt": "TraktProvider",
-        "rotten_tomatoes": "RottenTomatoesProvider"
-    }
-
     for provider_key, priority in provider_configs:
         # Parses provider key to determine type and name (e.g., providerc_tvmaze -> tvmaze, class).
         if provider_key.startswith("providerc_"):
@@ -152,8 +147,8 @@ def load_providers(provider_configs, config):
             module = importlib.import_module(module_path)
 
             if provider_type == "class":
-                # For class-based providers, gets the class (e.g., TvMazeProvider) and creates an instance.
-                class_name = provider_class_names.get(provider_name, f"{provider_name.capitalize()}Provider")
+                # Uses the script name without _provider.py as the class name (e.g., tvmazec_provider -> tvmazecprovider).
+                class_name = module_name.replace("_provider", "provider")
                 provider_class = getattr(module, class_name, None)
                 if provider_class:
                     provider_instance = provider_class(config)
@@ -197,7 +192,7 @@ def fetch_metadata(series_name, providers, config):
         logging.info(f"Fetching metadata from provider: {provider_key} ({provider_type})")
         try:
             if provider_type == "class":
-                # Calls the provider’s get_series_metadata method (e.g., TvMazeProvider.get_series_metadata).
+                # Calls the provider’s get_series_metadata method (e.g., tvmazecprovider.get_series_metadata).
                 provider_data = provider_instance.get_series_metadata(series_name)
             else:
                 # Calls the provider’s get_metadata function, which writes to a temp file.

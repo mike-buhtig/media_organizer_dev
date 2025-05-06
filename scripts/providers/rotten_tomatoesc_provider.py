@@ -16,7 +16,7 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from json_utils import clean_temp_file, format_provider_json
 
-class RottenTomatoesProvider:
+class rotten_tomatoescprovider:
     def __init__(self, config: ConfigParser):
         self.config = config
         self.base_temp = config["general"]["TEMP_FOLDER"]

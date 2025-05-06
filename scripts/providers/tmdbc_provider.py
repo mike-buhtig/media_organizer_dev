@@ -1,3 +1,4 @@
+
 # tmdbc_provider.py v1.0.0
 # Fetches series metadata from TMDB API
 #
@@ -11,7 +12,7 @@ import re
 from configparser import ConfigParser
 from json_utils import clean_temp_file, format_provider_json
 
-class TMDBProvider:
+class tmdbcprovider:
     def __init__(self, config: ConfigParser):
         self.config = config
         self.api_key = config["tmdb"]["API_KEY"]
