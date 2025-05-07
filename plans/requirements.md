@@ -26,7 +26,7 @@ Fetch: TV series metadata from providers (TVMaze, TMDb, Trakt, Rotten Tomatoes).
 Prioritize: Order defined in paths.txt [meta_providers] section (e.g., providerc_tvmaze=enabled first, providerf_tmdb=enabled second).
 Store: Original titles, normalized titles, normalized descriptions, IDs per provider, using keys like tvmazec, tvmazef in output JSON.
 Output:
-Temporary: tmp/providerf_<name>.json for function-based providers (e.g., tmp/providerf_tvmaze.json).
+Temporary: tmp/providerf_<name>.json for function-based providers (e.g., tmp/providerf_tvmaze.json); tmp/provider_<name>.json for class-based providers (e.g., tmp/provider_tmdb.json).
 Final: data/the_a_team/The_A-Team.json with merged metadata, grouping provider data under title, normalized_title, overview, id.
 
 
@@ -81,7 +81,7 @@ Types:
 
 Series_Name.json: Builder output with merged provider metadata (series, seasons, episodes, provider-specific titles, normalized titles, descriptions, IDs).
 Series_Name_Processed.json: Crawler output with matched episodes, file details, watched status, .xml metadata.
-providerf_<name>.json: Temporary function-based provider data (e.g., tmp/providerf_tvmaze.json).
+providerf_<name>.json or provider_<name>.json: Temporary provider data (e.g., tmp/providerf_tvmaze.json, tmp/provider_tmdb.json).
 kodi_data.json: Kodi database data (format to be defined later).
 trakt_watched.json (Future): Trakt watched status for .nfo integration.
 Series_Name_Not_Recorded.json: Unrecorded episodes for NextPVR scheduling.
@@ -148,7 +148,7 @@ overview: Object with provider keys and normalized episode descriptions (null if
 id: Object with provider keys and episode IDs (null if missing).
 
 
-Fields for providerf_<name>.json (Function-Based Provider Output):
+Fields for providerf_<name>.json or provider_<name>.json (Provider Output):
 {
   "series_name": "The A-Team",
   "seasons": {
@@ -170,6 +170,7 @@ Fields for providerf_<name>.json (Function-Based Provider Output):
 series_name: Series title.
 seasons: Object with season numbers as keys, arrays of episodes as values.
 episode_number, air_date, title, normalized_title, overview, id: Provider-specific data.
+Note: Class-based providers (e.g., tmdbc_provider.py) may write to tmp/provider_<name>.json (e.g., tmp/provider_tmdb.json).
 
 
 Fields for Series_Name_Processed.json (Crawler Output):
@@ -225,12 +226,13 @@ Fields for Series_Name_Processed.json (Crawler Output):
 
 
 Uses providers array to include files, xml_metadata, watched_status, standard_name.
+Note: Format to be revisited for alignment with Series_Name.json.
 
 
 
 Notes
 
-JSON Standards: Defined compact format for Series_Name.json with title and normalized_title, aligned providerf_<name>.json, and detailed Series_Name_Processed.json. kodi_data.json format pending.
+JSON Standards: Defined compact format for Series_Name.json with title and normalized_title, aligned providerf_<name>.json and provider_<name>.json, and detailed Series_Name_Processed.json (pending update).
 Modularization: Use json_utils.py for JSON handling, log_utils.py for logging; plan to centralize JSON formatting in json_utils.py.
 Kodi Data: Support multiple databases, addon/file sources.
 NextPVR Processing: Include file size, broken file details.
@@ -238,7 +240,8 @@ Output: .xml substitution, .nfo with original titles from first provider (future
 New JSONs: kodi_data.json, trakt_watched.json, Series_Name_Not_Recorded.json.
 Action:
 Commit plans/requirements.md to https://github.com/mike-buhtig/media_organizer after feedback.
-Update Season_Episode_builder.py and provider scripts to match new Series_Name.json format, plan to refactor formatting into json_utils.py later.
+Document json_utils.py after receiving the script.
+Update tmdbc_provider.py and Season_Episode_builder.py to match new JSON format, plan to refactor formatting into json_utils.py.
 
 
 Question: Approve requirements.md? Any changes before committing?

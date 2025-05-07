@@ -15,20 +15,21 @@ Functionality:
 Reads config/paths.txt for provider settings (e.g., providerc_tvmaze=enabled, TVMAZE_API_KEY) and folder paths (e.g., TEMP_FOLDER=tmp).
 Loads 8 providers: providerc_tvmaze, providerf_tvmaze, providerc_tmdb, providerf_tmdb, providerc_trakt, providerf_trakt, providerc_rotten_tomatoes, providerf_rotten_tomatoes. Providers can be added or disabled in paths.txt.
 Supports two provider types:
-Class-based (provider_namec_provider.py, e.g., tvmazec_provider.py): Uses a class named provider_namecprovider (e.g., tvmazecprovider in v1.0.11).
-Function-based (provider_namef_provider.py, e.g., tvmazef_provider.py): Uses a get_metadata function, writes to tmp/providerf_<name>.json (e.g., tmp/providerf_tvmaze.json).
+Class-based (provider_namec_provider.py, e.g., tmdbc_provider.py): Uses a class named provider_namecprovider (e.g., tmdbcprovider), writes to tmp/provider_<name>.json or returns metadata directly.
+Function-based (provider_namef_provider.py, e.g., tvmazef_provider.py): Uses a get_metadata function, writes to tmp/providerf_<name>.json.
 
 
 Calls providers to fetch metadata (e.g., episode titles, descriptions).
 Merges data into data/<series_slug>/<series_name>.json (e.g., data/ax_men/Ax Men.json) with a single episode instance, grouping provider data under title, normalized_title, overview, id with keys like tvmazec, tvmazef.
-Reads temporary files from tmp/providerf_<name>.json for function-based providers.
+Reads temporary files from tmp/providerf_<name>.json or tmp/provider_<name>.json.
 
 
 Calls:
 Provider Scripts (in scripts/providers/):
 tvmazec_provider.py: Calls tvmazecprovider.get_series_metadata(series_name).
 tvmazef_provider.py: Calls get_metadata(series_name, config), reads tmp/providerf_tvmaze.json.
-Similarly for tmdbc_provider.py (tmdbcprovider), tmdbf_provider.py (tmp/providerf_tmdb.json), traktc_provider.py (traktcprovider), traktf_provider.py (tmp/providerf_trakt.json), rotten_tomatoesc_provider.py (rotten_tomatoescprovider), rotten_tomatoesf_provider.py (tmp/providerf_rotten_tomatoes.json).
+tmdbc_provider.py: Calls tmdbcprovider.get_metadata(series_name), reads tmp/provider_tmdb.json.
+Similarly for tmdbf_provider.py (tmp/providerf_tmdb.json), traktc_provider.py, traktf_provider.py (tmp/providerf_trakt.json), rotten_tomatoesc_provider.py, rotten_tomatoesf_provider.py (tmp/providerf_rotten_tomatoes.json).
 
 
 Inputs:
@@ -38,7 +39,7 @@ Command-line: --series "Ax Men".
 
 Outputs:
 data/ax_men/Ax Men.json: Merged metadata with title, normalized_title, overview, id objects (e.g., tvmazec, tmdbf keys in v1.0.11).
-tmp/providerf_<name>.json: Function-based provider data (read by builder).
+tmp/providerf_<name>.json or tmp/provider_<name>.json: Provider data (read by builder).
 logs/ax_men/builder.log: Logs provider loads, errors, temp file checks.
 
 
@@ -184,16 +185,16 @@ Keys: series_name, episodes, source.
 
 Purpose: Provides utility functions for JSON reading, writing, and formatting (supports all scripts).
 Functionality:
-Functions like format_provider_json (missing in v1.0.11, causing provider failures).
+Functions like clean_temp_file, format_provider_json (missing in v1.0.11, causing provider failures).
 Handles JSON standards from requirements.md.
 Plan to add title normalization and JSON structuring for Series_Name.json.
 
 
 Called By:
-Season_Episode_builder.py, file_organizer.py, series_folder_crawler.py, kodi_db_exporter.py, match_unmatched.py, process_kodi_data.py.
+Season_Episode_builder.py, file_organizer.py, series_folder_crawler.py, kodi_db_exporter.py, match_unmatched.py, process_kodi_data.py, tmdbc_provider.py.
 
 
-Inputs/Outputs: JSON files (e.g., Ax Men.json, kodi_data.json).
+Inputs/Outputs: JSON files (e.g., Ax Men.json, provider_tmdb.json).
 Keys: Varies by script (e.g., series_name, episodes).
 
 8. Provider Scripts (in scripts/providers/)
@@ -201,7 +202,7 @@ Keys: Varies by script (e.g., series_name, episodes).
 Scripts: tvmazec_provider.py, tvmazef_provider.py, tmdbc_provider.py, tmdbf_provider.py, traktc_provider.py, traktf_provider.py, rotten_tomatoesc_provider.py, rotten_tomatoesf_provider.py.
 Purpose: Fetch metadata from APIs or web scraping (Action 3 in requirements.md).
 Functionality:
-Class-based (provider_namec_provider.py): Use a class named provider_namecprovider (e.g., tvmazecprovider), return metadata directly.
+Class-based (provider_namec_provider.py): Use a class named provider_namecprovider (e.g., tmdbcprovider), write to tmp/provider_<name>.json or return metadata directly.
 Function-based (provider_namef_provider.py): Use get_metadata(series_name, config), write to tmp/providerf_<name>.json.
 
 
@@ -215,16 +216,17 @@ Series name from Season_Episode_builder.py.
 
 
 Outputs:
-tmp/providerf_<name>.json: Episode metadata (function-based).
-Direct metadata return (class-based).
+tmp/providerf_<name>.json or tmp/provider_<name>.json: Episode metadata.
+Direct metadata return (some class-based providers).
 
 
-Keys (for providerf_<name>.json):
+Keys (for providerf_<name>.json or provider_<name>.json):
 series_name, seasons (object with season numbers), episodes (with episode_number, air_date, title, normalized_title, overview, id).
 
 
 Issues:
 tmdbc_provider.py, traktc_provider.py, rotten_tomatoesc_provider.py fail due to missing format_provider_json.
+tmdbc_provider.py uses tmp/provider_tmdb.json instead of tmp/providerf_tmdb.json, inconsistent with function-based naming.
 
 
 
@@ -232,7 +234,7 @@ Call Flow
 
 kodi_db_exporter.py → kodi_data.json (Action 1).
 series_folder_crawler.py → <series_name>_Processed.json (Action 2).
-Season_Episode_builder.py → Calls providers → tmp/providerf_<name>.json (function-based) → <series_name>.json (Action 3).
+Season_Episode_builder.py → Calls providers → tmp/providerf_<name>.json or tmp/provider_<name>.json → <series_name>.json (Action 3).
 match_unmatched.py → Reads <series_name>.json, <series_name>_Processed.json, kodi_data.json → Updates <series_name>_Processed.json (Action 4).
 file_organizer.py → Reads <series_name>_Processed.json → Creates .nfo, moves files (Action 5).
 process_kodi_data.py → Supports kodi_db_exporter.py or match_unmatched.py.
@@ -240,22 +242,21 @@ process_kodi_data.py → Supports kodi_db_exporter.py or match_unmatched.py.
 Notes
 
 Path Conventions:
-TEMP_FOLDER (e.g., tmp): Used by function-based providers to write tmp/providerf_<name>.json and by builder to read them.
+TEMP_FOLDER (e.g., tmp): Used by providers to write tmp/providerf_<name>.json or tmp/provider_<name>.json.
 JSON_FOLDER (e.g., data): Output directory for <series_name>.json.
 LOG_PATH (e.g., logs): Directory for script logs.
-Provider files: providerf_<name>.json for function-based, no temp files for class-based.
 
 
 Provider Conventions:
-providerc_<name>: Class-based providers (e.g., providerc_tvmaze), use provider_namecprovider class, JSON keys like tvmazec.
+providerc_<name>: Class-based providers (e.g., providerc_tvmaze), use provider_namecprovider class, JSON keys like tvmazec, temp files like tmp/provider_<name>.json.
 providerf_<name>: Function-based providers (e.g., providerf_tvmaze), write tmp/providerf_<name>.json, JSON keys like tvmazef.
 
 
 JSON Formats:
-Series_Name.json: Compact with title, normalized_title, overview, id objects using provider keys (e.g., tvmazec).
-providerf_<name>.json: Provider-specific metadata with title, normalized_title.
-Series_Name_Processed.json: Includes files, xml_metadata, watched_status with providers array.
+Series_Name.json: Compact with title, normalized_title, overview, id objects using provider keys (e.g  - Series_Name_Json: Compact with title, normalized_title, overview, id objects using provider keys (e.g., tvmazec).
+providerf_<name>.json or provider_<name>.json: Provider-specific metadata with title, normalized_title.
+Series_Name_Processed.json: Includes files, xml_metadata, watched_status with providers array (pending update).
 
 
-Next Steps: Update Season_Episode_builder.py and provider scripts for new Series_Name.json format, plan to refactor formatting into json_utils.py later.
+Next Steps: Document json_utils.py, update tmdbc_provider.py and Season_Episode_builder.py for new JSON format, refactor formatting into json_utils.py.
 
