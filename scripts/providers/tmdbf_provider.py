@@ -60,7 +60,7 @@ def get_metadata(title, config: ConfigParser):
                 }
                 output["seasons"].setdefault(snum, []).append(ep_data)
 
-        output_path = os.path.join(base_temp, "provider_tmdb.json")
+        output_path = os.path.join(base_temp, "providerf_tmdb.json")
         # Delete existing temp file to prevent stale data
         if os.path.exists(output_path):
             os.remove(output_path)

@@ -96,7 +96,7 @@ def parse_air_date(raw_date):
 def get_metadata(title, config):
     """Fetch Rotten Tomatoes metadata for all seasons/episodes"""
     log_dir = config["general"]["LOG_PATH"]
-    temp_file = os.path.join(config["general"]["TEMP_FOLDER"], "provider_rotten_tomatoes.json")
+    temp_file = os.path.join(config["general"]["TEMP_FOLDER"], "providerf_rotten_tomatoes.json")
     delay = float(config["rotten_tomatoes"].get("SCRAPE_DELAY", 0.5))
     
     # Delete existing temp file to prevent stale data
