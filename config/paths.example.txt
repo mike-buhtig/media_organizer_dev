@@ -1,23 +1,24 @@
-# Configuration file for media_organizer scripts
-# Located in config/paths.txt
-# Sections: [general], [series], [meta_providers], [kodi], [tmdb], [trakt], [tvmaze], [rotten_tomatoes], [thresholds]
-# Add new series under [series], providers under [meta_providers], and adjust thresholds under [thresholds]
+# Governance Rules:
+# 1. No Unauthorized Deletions: No sections or settings in this file may be removed without explicit approval from the project engineer. All content serves a purpose, and unauthorized deletions may lead to loss of critical functionality or data.
+# 2. Preserve Script Logic: Logic within scripts must not be altered or removed just because it appears unnecessary. All logic must remain available unless explicitly approved for removal by the project engineer.
+# 3. Read All Documents Before Changes: All governing documents (coding_conventions.md, requirements.md, script_relationships.md) and configuration files (paths.txt, paths.example.txt) must be fully reviewed before making any changes to identify existing content, ensure compliance, and avoid conflicts or deletions.
+# 4. Report Conflicts: If a conflict is found between documents, within a document, or in script logic, no changes may be made. The conflict must be reported to the project engineer for resolution.
 
 [general]
 # Relative path for JSON output (e.g., data/the_a_team/The_A-Team.json)
-JSON_FOLDER = data
+JSON_FOLDER=data
 
 # Relative path for logs (e.g., logs/the_a_team/season_episode_builder.log)
-LOG_PATH = logs
+LOG_PATH=logs
 
 # Relative path for temporary files
-TEMP_FOLDER = tmp
+TEMP_FOLDER=tmp
 
 # Operational settings for file_organizer.py and kodi_db_exporter.py
-USE_KODI = true
-USE_NEXTPVR = true
-OPERATION_MODE = move
-CREATE_NFO = true
+USE_KODI=true
+USE_NEXTPVR=true
+OPERATION_MODE=move
+CREATE_NFO=true
 
 [series]
 # Add series as series_name_X = <name>, series_path_X = <path>
@@ -38,55 +39,24 @@ series_name_7 = Ancient Engineering
 series_path_7 = D:/NEXT PVR/RecordingDirectory/Ancient Engineering
 
 [meta_providers]
-# Format for Class Based providers: <provider_name> = enabled,<priority number>,<module_path>,<class_name>
-# Format for Function based providers: <provider_name> = enabled,<priority number>,<module_path>
-providerc_tvmaze = enabled
-providerf_tvmaze = enabled 
-providerc_tmdb = enabled 
-providerf_tmdb = enabled
-providerc_trakt = enabled
-providerf_trakt = enabled 
-providerc_rotten_tomatoes = enabled 
-providerf_rotten_tomatoes = enabled
-
-[kodi]
-# Settings for kodi_db_exporter.py
-KODI_IP = 192.168.0.127
-KODI_METADATA_TEMPLATE = data/kodi_export.json
-ADB_PATH =
-
-[tmdb]
-# API settings for tmdb_provider.py
-TMDB_API_KEY = <tmdb api key>
-TMDB_PASSWORD = <tmdb password>
-
-[trakt]
-# API settings for trakt_provider.py
-TRAKT_CLIENT_ID = <trakt Client ID>
-TRAKT_CLIENT_SECRET = <trakt Client Secret>
+# Format: <name>=enabled
+# Providers are loaded dynamically from scripts/providers/<name>.py
+# Order (top to bottom) defines priority for metadata merging and episode naming in Season_Episode_builder.py, series_folder_crawler.py, file_organizer.py:
+# tvmaze (highest), tmdb, trakt, rotten_tomatoes (lowest, crowd-sourced but valuable for some platforms like Samsung TV Plus)
+tvmaze=enabled
+tmdb=enabled
+trakt=enabled
+rotten_tomatoes=enabled
 
 [tvmaze]
-# API settings for tvmaze_provider.py
-TVMAZE_API_KEY = <tvmaze api key>
+API_KEY=<your_valid_tvmaze_api_key>
+
+[tmdb]
+API_KEY=<your_valid_tmdb_api_key>
+
+[trakt]
+API_KEY=<your_valid_trakt_api_key>
 
 [rotten_tomatoes]
-# Settings for rotten_tomatoes_provider.py
-SCRAPE_DELAY = 0.5
-SEARCH_API_URL = https://serpapi.com/search
-SEARCH_API_KEY =
-
-[thresholds]
-# Matching thresholds for series_folder_crawler.py
-# PASS4_THRESHOLD: Default for 4th pass (higher = stricter, more tokens needed)
-# Per-series thresholds: pass4_threshold_<Series_Name>, pass2_threshold_<Series_Name>, etc.
-PASS4_THRESHOLD = 15
-pass4_threshold_Ax_Men = 12
-pass4_threshold_The_A-Team = 10
-pass4_threshold_Mission_Impossible = 10
-pass2_threshold_Ax_Men = 0.80
-pass3_threshold_Ax_Men = 0.80
-
-[library_paths]
-# Output paths for file_organizer.py
-TV_LIBRARY_PATH = E:/media_library/tv_series
-MOVIE_LIBRARY_PATH = E:/media_library/movies
+# Settings for rotten_tomatoes.py (scraper, not API-based)
+SCRAPE_DELAY=0.5

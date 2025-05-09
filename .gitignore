@@ -178,3 +178,4 @@ logs/
 data/
 tmp/
 *.log
+scripts/providers/old scripts/*

@@ -1,262 +1,122 @@
-Script Relationships for Media Organizer
-This document details the purpose, functionality, and relationships between scripts in the media_organizer project, ensuring accurate interactions to prevent errors like those before Season_Episode_builder.py v1.0.10. Each script is mapped to actions in plans/requirements.md, with plain English explanations of how scripts call each other, including input/output files and JSON keys.
-Overview
+Script Relationships for Media Organizer Project
+This document describes the interactions and dependencies between scripts in the Media Organizer project, which automates TV series metadata fetching, file organization, and Kodi/NextPVR integration.
+Related Documents
+This document must be used in conjunction with:
 
-Purpose: Define how scripts work together to pull Kodi data, process NextPVR recordings, fetch metadata, match files, organize files, update the NextPVR database, and generate comskip files.
-Scripts: Core scripts in scripts/ and provider scripts in scripts/providers/.
-Reference: Mandatory for development to ensure correct imports, file paths, and JSON keys.
-Providers: Supports 8 providers from four sources (TVMaze, TMDb, Trakt, Rotten Tomatoes), covering nearly 100% of tested series metadata (season/episode, titles, overviews, air dates). Providers are class-based (provider_namec_provider.py, class provider_namecprovider, keys like tvmazec) or function-based (provider_namef_provider.py, keys like tvmazef). New providers can be added by creating scripts and enabling in config/paths.txt.
+plans/requirements.md: Defines functional requirements and configuration structure (e.g., paths.txt).
+plans/coding_conventions.md: Defines coding practices, including no hard-coding of providers.Failure to consult all three documents may result in non-compliant code or functionality.
 
-Scripts and Relationships
+Governance Rules
+
+No Unauthorized Deletions: No sections, settings, or content in this document, other governing documents (coding_conventions.md, requirements.md), or configuration files (paths.txt, paths.example.txt) may be removed without explicit approval from the project engineer. All content serves a purpose, and unauthorized deletions may lead to loss of critical functionality or data.
+Preserve Script Logic: Scripts (Season_Episode_builder.py, file_organizer.py, series_folder_crawler.py, kodi_db_exporter.py, providers/<name>.py) are the primary storage of functional logic for the project. No logic within these scripts may be altered or removed, even if it appears unnecessary, without explicit approval from the project engineer. All logic must remain available to support current and future functionality.
+Read All Documents Before Changes: All governing documents (coding_conventions.md, requirements.md, script_relationships.md) and configuration files (paths.txt, paths.example.txt) must be fully reviewed before making any changes to identify existing content, ensure compliance, and avoid conflicts or deletions.
+Report Conflicts: If a conflict is found between documents, within a document, or in script logic, no changes may be made. The conflict must be reported to the project engineer for resolution.
+
+Scripts and Their Roles
 1. Season_Episode_builder.py
 
-Purpose: Fetches TV series metadata from multiple providers and builds episode metadata (Action 3 in requirements.md).
-Functionality:
-Reads config/paths.txt for provider settings (e.g., providerc_tvmaze=enabled, TVMAZE_API_KEY) and folder paths (e.g., TEMP_FOLDER=tmp).
-Loads 8 providers: providerc_tvmaze, providerf_tvmaze, providerc_tmdb, providerf_tmdb, providerc_trakt, providerf_trakt, providerc_rotten_tomatoes, providerf_rotten_tomatoes. Providers can be added or disabled in paths.txt.
-Supports two provider types:
-Class-based (provider_namec_provider.py, e.g., tmdbc_provider.py): Uses a class named provider_namecprovider (e.g., tmdbcprovider), writes to tmp/provider_<name>.json or returns metadata directly.
-Function-based (provider_namef_provider.py, e.g., tvmazef_provider.py): Uses a get_metadata function, writes to tmp/providerf_<name>.json.
-
-
-Calls providers to fetch metadata (e.g., episode titles, descriptions).
-Merges data into data/<series_slug>/<series_name>.json (e.g., data/ax_men/Ax Men.json) with a single episode instance, grouping provider data under title, normalized_title, overview, id with keys like tvmazec, tvmazef.
-Reads temporary files from tmp/providerf_<name>.json or tmp/provider_<name>.json.
-
-
-Calls:
-Provider Scripts (in scripts/providers/):
-tvmazec_provider.py: Calls tvmazecprovider.get_series_metadata(series_name).
-tvmazef_provider.py: Calls get_metadata(series_name, config), reads tmp/providerf_tvmaze.json.
-tmdbc_provider.py: Calls tmdbcprovider.get_metadata(series_name), reads tmp/provider_tmdb.json.
-Similarly for tmdbf_provider.py (tmp/providerf_tmdb.json), traktc_provider.py, traktf_provider.py (tmp/providerf_trakt.json), rotten_tomatoesc_provider.py, rotten_tomatoesf_provider.py (tmp/providerf_rotten_tomatoes.json).
-
-
+Purpose: Fetch TV series metadata from providers and generate a consolidated JSON file.
 Inputs:
-config/paths.txt: Provider enablement, API keys, folder paths (JSON_FOLDER=data, TEMP_FOLDER=tmp, LOG_PATH=logs).
-Command-line: --series "Ax Men".
+--series: Series name (e.g., Ax Men).
+config/paths.txt: Configuration with [meta_providers] and [series] sections.
 
 
 Outputs:
-data/ax_men/Ax Men.json: Merged metadata with title, normalized_title, overview, id objects (e.g., tvmazec, tmdbf keys in v1.0.11).
-tmp/providerf_<name>.json or tmp/provider_<name>.json: Provider data (read by builder).
-logs/ax_men/builder.log: Logs provider loads, errors, temp file checks.
+data/<series_slug>/<series_name>.json (e.g., data/ax_men/Ax Men.json) with raw provider data, preserving [meta_providers] order.
+tmp/<name>.json (e.g., tmp/tvmaze.json) per enabled provider, deleted before writing.
+logs/<series_slug>/builder.log (e.g., logs/ax_men/builder.log).
+
+
+Dependencies:
+Calls <name>.py modules (e.g., tvmaze.py) dynamically based on [meta_providers] in priority order (tvmaze first, rotten_tomatoes last).
+Reads tmp/<name>.json files generated by providers.
 
 
 
+2. series_folder_crawler.py
 
-Keys (for Ax Men.json):
-series_name: e.g., "Ax Men".
-seasons: Array with season_number, episodes.
-episodes: Array with episode_number, air_date, title (e.g., {"tvmazec": "Man vs. Mountain"}), normalized_title, overview, id.
-
-
-Issues (v1.0.11):
-providerc_tmdb, providerc_trakt, providerc_rotten_tomatoes fail due to missing format_provider_json in json_utils.py.
-tvmazec_provider may bypass json_utils.py, needs verification.
-
-
-
-2. file_organizer.py
-
-Purpose: Organizes NextPVR recording files into series/season folders, creates .nfo files, and optionally moves files (Action 5 in requirements.md).
-Functionality:
-Reads data/<series_slug>/<series_name>_Processed.json for matched episodes and file details.
-Creates .nfo files (e.g., Series/Ax Men/Season 01/Ax Men - S01E01 - Man vs. Mountain.nfo) with metadata from first provider in paths.txt.
-Optionally moves .ts, .xml, .edl files to Series/Ax Men/Season XX/ with --move flag, using largest unbroken .ts.
-Writes new .xml files with provider metadata.
-
-
-Calls:
-json_utils.py: Reads <series_name>_Processed.json.
+Purpose: Crawl series folders to match files with metadata, normalizing names for comparison.
 Inputs:
-data/ax_men/Ax Men_Processed.json: Episode matches, file paths, watched status.
-config/paths.txt: series_path_1 for source folder.
+Series JSON: data/<series_slug>/<series_name>.json from Season_Episode_builder.py.
+Configuration: paths.txt with [series] (e.g., series_path_1).
 
 
 Outputs:
-.nfo files in Series/Ax Men/Season XX/.
-Moved files (if --move).
-logs/ax_men/file_organizer.log.
+Potentially extended JSON or internal data structures for matching files to episodes.
+
+
+Behavior:
+Reads [series] section to locate series paths (e.g., D:/NEXT PVR/RecordingDirectory/Ax Men).
+Normalizes episode names from raw provider data in JSON for matching.
+Uses [meta_providers] priority order to select preferred episode names.
+
+
+Dependencies:
+Consumes JSON from Season_Episode_builder.py.
 
 
 
+3. file_organizer.py
 
-Keys:
-series_name, seasons, episodes, providers (with name, title, normalized_title, description), files (with path, size, broken), xml_metadata, watched_status, standard_name.
-
-
-Issues: Fails due to path/format mismatch in <series_name>_Processed.json (needs JSON snippet to debug).
-
-3. series_folder_crawler.py
-
-Purpose: Scans NextPVR recording folders to collect .ts and .xml file details (Action 2 in requirements.md).
-Functionality:
-Scans folders from config/paths.txt (e.g., series_path_1=D:/NEXT PVR/RecordingDirectory/Ax Men).
-Extracts .xml metadata (<subtitle>, <Title>).
-Groups .ts and .xml by subtitle, marks broken files (e.g., -0).
-Records file sizes.
-Writes data/ax_men/Ax Men_Processed.json with file details.
-
-
-Calls:
-json_utils.py: Writes <series_name>_Processed.json.
+Purpose: Organize media files into a structured directory based on metadata.
 Inputs:
-config/paths.txt: Recording paths.
-Command-line: Series name.
+Series JSON: data/<series_slug>/<series_name>.json.
+Configuration: paths.txt with [series] (e.g., series_path_1), OPERATION_MODE, CREATE_NFO.
 
 
 Outputs:
-data/ax_men/Ax Men_Processed.json: File groups, sizes, broken status.
+Organized files: series_path_X/<series_name>/Season <N>/<series_name> - S<NN>E<NN>_<episode_name>.ext, using episode names from highest-priority provider.
+Optional .nfo files.
 
 
-
-
-Keys:
-series_name, seasons, episodes, providers (with name, title, normalized_title, description), files (with path, size, broken), xml_metadata, watched_status, standard_name.
+Dependencies:
+Consumes JSON from Season_Episode_builder.py, potentially via series_folder_crawler.py.
+Uses [series] section for series paths.
 
 
 
 4. kodi_db_exporter.py
 
-Purpose: Extracts watched status and episode data from Kodi databases (Action 1 in requirements.md).
-Functionality:
-Accesses Kodi SQLite databases (Android via ADB, non-Android directly).
-Merges data from multiple databases.
-Extracts series, season, episode, path, watched status, source (addon or file).
-Writes data/kodi_data.json.
-
-
-Calls:
-json_utils.py: Writes kodi_data.json.
-Inputs: Database paths (possibly from paths.txt).
-Outputs:
-data/kodi_data.json: Series, episode, path, watched status (format pending).
-
-
-
-
-Keys: series_name, seasons, episodes (with episode_number, path, watched_status, source).
-
-5. match_unmatched.py
-
-Purpose: Matches NextPVR files to provider metadata and integrates Kodi watched status (Action 4 in requirements.md).
-Functionality:
-Reads data/ax_men/Ax Men.json (provider metadata) and data/ax_men/Ax Men_Processed.json (file details).
-Matches .xml subtitles to provider normalized_title.
-Integrates watched status from data/kodi_data.json.
-Updates Ax Men_Processed.json with matches.
-
-
-Calls:
-json_utils.py: Reads/writes JSON files.
+Purpose: Export metadata to Kodi’s database.
 Inputs:
-Ax Men.json, Ax Men_Processed.json, kodi_data.json.
+Series JSON: data/<series_slug>/<series_name>.json.
+Configuration: paths.txt with USE_KODI.
 
 
 Outputs:
-Updated Ax Men_Processed.json.
+Database entries in Kodi’s MySQL or SQLite database.
+
+
+Dependencies:
+Consumes JSON from Season_Episode_builder.py.
 
 
 
+5. Provider Modules
 
-Keys:
-Matches xml_metadata.subtitle to providers.normalized_title, adds watched_status, standard_name.
-
-
-
-6. process_kodi_data.py
-
-Purpose: Processes Kodi data for integration with other scripts (likely supports Action 1 or 4).
-Functionality:
-Preprocesses kodi_data.json for match_unmatched.py.
-Normalizes addon names (e.g., Ax.Men.S01E01.Man.vs.Mountain).
-
-
-Calls:
-json_utils.py: Reads/writes JSON.
-Inputs: kodi_data.json.
-Outputs: Intermediate JSON or input to match_unmatched.py.
-
-
-Keys: series_name, episodes, source.
-
-7. json_utils.py
-
-Purpose: Provides utility functions for JSON reading, writing, and formatting (supports all scripts).
-Functionality:
-Functions like clean_temp_file, format_provider_json (missing in v1.0.11, causing provider failures).
-Handles JSON standards from requirements.md.
-Plan to add title normalization and JSON structuring for Series_Name.json.
-
-
-Called By:
-Season_Episode_builder.py, file_organizer.py, series_folder_crawler.py, kodi_db_exporter.py, match_unmatched.py, process_kodi_data.py, tmdbc_provider.py.
-
-
-Inputs/Outputs: JSON files (e.g., Ax Men.json, provider_tmdb.json).
-Keys: Varies by script (e.g., series_name, episodes).
-
-8. Provider Scripts (in scripts/providers/)
-
-Scripts: tvmazec_provider.py, tvmazef_provider.py, tmdbc_provider.py, tmdbf_provider.py, traktc_provider.py, traktf_provider.py, rotten_tomatoesc_provider.py, rotten_tomatoesf_provider.py.
-Purpose: Fetch metadata from APIs or web scraping (Action 3 in requirements.md).
-Functionality:
-Class-based (provider_namec_provider.py): Use a class named provider_namecprovider (e.g., tmdbcprovider), write to tmp/provider_<name>.json or return metadata directly.
-Function-based (provider_namef_provider.py): Use get_metadata(series_name, config), write to tmp/providerf_<name>.json.
-
-
-Called By:
-Season_Episode_builder.py: Imports and calls each provider.
-
-
+Location: scripts/providers/
+Naming: <name>.py (e.g., tvmaze.py), with unique names for each provider.
+Purpose: Fetch metadata for a series and write to tmp/<name>.json with raw data.
 Inputs:
-config/paths.txt: API keys, temp folder (TEMP_FOLDER=tmp).
-Series name from Season_Episode_builder.py.
+series_name: Series name (e.g., Ax Men).
+config: ConfigParser object with paths.txt settings (e.g., API_KEY, SCRAPE_DELAY).
 
 
 Outputs:
-tmp/providerf_<name>.json or tmp/provider_<name>.json: Episode metadata.
-Direct metadata return (some class-based providers).
+tmp/<name>.json (e.g., tmp/tvmaze.json).
 
 
-Keys (for providerf_<name>.json or provider_<name>.json):
-series_name, seasons (object with season numbers), episodes (with episode_number, air_date, title, normalized_title, overview, id).
+Called By: Season_Episode_builder.py dynamically based on [meta_providers] priority order.
 
+Configuration
 
-Issues:
-tmdbc_provider.py, traktc_provider.py, rotten_tomatoesc_provider.py fail due to missing format_provider_json.
-tmdbc_provider.py uses tmp/provider_tmdb.json instead of tmp/providerf_tmdb.json, inconsistent with function-based naming.
+config/paths.txt: Defines providers (tvmaze=enabled), series (series_name_1 = The A-Team), paths (JSON_FOLDER, TEMP_FOLDER, LOG_PATH), and settings (USE_KODI, OPERATION_MODE, SCRAPE_DELAY).
+config/paths.example.txt: Template for paths.txt with placeholder settings.
 
+References
 
-
-Call Flow
-
-kodi_db_exporter.py → kodi_data.json (Action 1).
-series_folder_crawler.py → <series_name>_Processed.json (Action 2).
-Season_Episode_builder.py → Calls providers → tmp/providerf_<name>.json or tmp/provider_<name>.json → <series_name>.json (Action 3).
-match_unmatched.py → Reads <series_name>.json, <series_name>_Processed.json, kodi_data.json → Updates <series_name>_Processed.json (Action 4).
-file_organizer.py → Reads <series_name>_Processed.json → Creates .nfo, moves files (Action 5).
-process_kodi_data.py → Supports kodi_db_exporter.py or match_unmatched.py.
-
-Notes
-
-Path Conventions:
-TEMP_FOLDER (e.g., tmp): Used by providers to write tmp/providerf_<name>.json or tmp/provider_<name>.json.
-JSON_FOLDER (e.g., data): Output directory for <series_name>.json.
-LOG_PATH (e.g., logs): Directory for script logs.
-
-
-Provider Conventions:
-providerc_<name>: Class-based providers (e.g., providerc_tvmaze), use provider_namecprovider class, JSON keys like tvmazec, temp files like tmp/provider_<name>.json.
-providerf_<name>: Function-based providers (e.g., providerf_tvmaze), write tmp/providerf_<name>.json, JSON keys like tvmazef.
-
-
-JSON Formats:
-Series_Name.json: Compact with title, normalized_title, overview, id objects using provider keys (e.g  - Series_Name_Json: Compact with title, normalized_title, overview, id objects using provider keys (e.g., tvmazec).
-providerf_<name>.json or provider_<name>.json: Provider-specific metadata with title, normalized_title.
-Series_Name_Processed.json: Includes files, xml_metadata, watched_status with providers array (pending update).
-
-
-Next Steps: Document json_utils.py, update tmdbc_provider.py and Season_Episode_builder.py for new JSON format, refactor formatting into json_utils.py.
+plans/requirements.md: Functional requirements, configuration structure, and JSON output format for Season_Episode_builder.py.
+plans/coding_conventions.md: Coding practices and provider conventions.
+config/paths.example.txt: Configuration template.
 
