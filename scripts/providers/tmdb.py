@@ -1,15 +1,16 @@
-# providers/tmdb_provider.py V 1.0.1
-# Fetches metadata from TMDB and writes standardized output to a temp file
-# Change 1: Added clean_title function to strip quotes and backslashes from episode titles
-# Change 2: Applied title cleaning to ep.get("name") to fix malformed titles (e.g., "\"By Air, Land and Sea\"")
+# providers/tmdb.py v1.0.1
+# Fetches metadata from TMDb using a function-based interface
+# Based on tmdbf_provider.py v1.0.0
+# Writes standardized metadata to tmp/tmdb.json
+# Version 1.0.1: Updated to use list-based seasons structure
 
 import os
 import json
 import requests
 import re
-from configparser import ConfigParser
 
 def clean_title(title):
+    """Clean title by removing quotes and backslashes."""
     if not title:
         return ""
     cleaned = re.sub(r'^"|"$|\\', '', title.strip())
@@ -17,54 +18,71 @@ def clean_title(title):
         print(f"[TMDB] Cleaned title: '{title}' -> '{cleaned}'")
     return cleaned
 
-def get_metadata(title, config: ConfigParser):
+def get_metadata(series_name, config):
+    """Fetch metadata for a series from TMDb and write to tmp/tmdb.json."""
     base_temp = config["general"]["TEMP_FOLDER"]
     api_key = config["tmdb"]["TMDB_API_KEY"]
     os.makedirs(base_temp, exist_ok=True)
+    output_path = os.path.join(base_temp, "tmdb.json")
+
+    search_url = f"https://api.themoviedb.org/3/search/tv?api_key={api_key}&query={requests.utils.quote(series_name)}"
 
     try:
-        search_url = f"https://api.themoviedb.org/3/search/tv?query={requests.utils.quote(title)}&api_key={api_key}"
-        search_resp = requests.get(search_url)
-        if search_resp.status_code != 200 or not search_resp.json().get("results"):
-            print("[TMDB] No matching show found.")
+        show_resp = requests.get(search_url)
+        if show_resp.status_code != 200 or not show_resp.json()['results']:
+            print(f"[TMDB] Show {series_name} not found.")
             return
 
-        show = search_resp.json()["results"][0]
-        show_id = show["id"]
+        show_data = show_resp.json()['results'][0]
+        show_id = show_data.get("id")
+        details_url = f"https://api.themoviedb.org/3/tv/{show_id}?api_key={api_key}&append_to_response=seasons"
+        details_resp = requests.get(details_url)
+        details = details_resp.json()
 
         output = {
-            "title": show.get("name"),
+            "title": show_data.get("name"),
             "id": show_id,
             "type": "tv",
-            "overview": show.get("overview", ""),
-            "first_air_date": show.get("first_air_date"),
-            "seasons": {}
+            "overview": details.get("overview", ""),
+            "first_air_date": show_data.get("first_air_date"),
+            "seasons": []
         }
 
-        season_list_url = f"https://api.themoviedb.org/3/tv/{show_id}?api_key={api_key}"
-        show_detail = requests.get(season_list_url).json()
-        for season in show_detail.get("seasons", []):
-            snum = season.get("season_number")
-            season_url = f"https://api.themoviedb.org/3/tv/{show_id}/season/{snum}?api_key={api_key}"
+        # Group episodes by season
+        season_dict = {}
+        for season in details.get("seasons", []):
+            s = season.get("season_number", 0)
+            season_url = f"https://api.themoviedb.org/3/tv/{show_id}/season/{s}?api_key={api_key}"
             season_resp = requests.get(season_url)
-            episodes = season_resp.json().get("episodes", []) if season_resp.status_code == 200 else []
+            episodes = season_resp.json().get("episodes", [])
 
             for ep in episodes:
-                ep_title = clean_title(ep.get("name"))
+                e = ep.get("episode_number")
+                if not e:
+                    continue
                 ep_data = {
-                    "episode_number": ep.get("episode_number"),
+                    "episode_number": e,
                     "air_date": ep.get("air_date"),
-                    "titles": {"tmdb": ep_title},
-                    "overviews": {"tmdb": ep.get("overview", "")},
+                    "titles": {"tmdb": clean_title(ep.get("name"))},
+                    "overviews": {"tmdb": ep.get("overview") or ""},
                     "ids": {"tmdb": ep.get("id")}
                 }
-                output["seasons"].setdefault(snum, []).append(ep_data)
+                season_dict.setdefault(s, []).append(ep_data)
 
-        output_path = os.path.join(base_temp, "providerf_tmdb.json")
+        # Convert season dictionary to list
+        output["seasons"] = [
+            {
+                "season_number": season_num,
+                "episodes": episodes
+            }
+            for season_num, episodes in sorted(season_dict.items())
+        ]
+
         # Delete existing temp file to prevent stale data
         if os.path.exists(output_path):
             os.remove(output_path)
-            print(f"[tmdbf] Deleted existing temp file: {output_path}")
+            print(f"[TMDB] Deleted existing temp file: {output_path}")
+
         with open(output_path, "w", encoding="utf-8") as f:
             json.dump(output, f, indent=2)
 

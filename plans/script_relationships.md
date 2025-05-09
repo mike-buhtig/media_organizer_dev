@@ -1,5 +1,4 @@
-Script Relationships for Media Organizer Project
-This document describes the interactions and dependencies between scripts in the Media Organizer project, which automates TV series metadata fetching, file organization, and Kodi/NextPVR integration.
+Script Relationships for Media Organizer ProjectThis document describes the interactions and dependencies between scripts in the Media Organizer project, which automates TV series metadata fetching, file organization, and Kodi/NextPVR integration.
 Related Documents
 This document must be used in conjunction with:
 
@@ -9,7 +8,7 @@ plans/coding_conventions.md: Defines coding practices, including no hard-coding 
 Governance Rules
 
 No Unauthorized Deletions: No sections, settings, or content in this document, other governing documents (coding_conventions.md, requirements.md), or configuration files (paths.txt, paths.example.txt) may be removed without explicit approval from the project engineer. All content serves a purpose, and unauthorized deletions may lead to loss of critical functionality or data.
-Preserve Script Logic: Scripts (Season_Episode_builder.py, file_organizer.py, series_folder_crawler.py, kodi_db_exporter.py, providers/<name>.py) are the primary storage of functional logic for the project. No logic within these scripts may be altered or removed, even if it appears unnecessary, without explicit approval from the project engineer. All logic must remain available to support current and future functionality.
+Preserve Script Logic: Scripts (Season_Episode_builder.py, file_organizer.py, series_folder_crawler.py, kodi_db_exporter.py, providers/.py) are the primary storage of functional logic for the project. No logic within these scripts may be altered or removed, even if it appears unnecessary, without explicit approval from the project engineer. All logic must remain available to support current and future functionality.
 Read All Documents Before Changes: All governing documents (coding_conventions.md, requirements.md, script_relationships.md) and configuration files (paths.txt, paths.example.txt) must be fully reviewed before making any changes to identify existing content, ensure compliance, and avoid conflicts or deletions.
 Report Conflicts: If a conflict is found between documents, within a document, or in script logic, no changes may be made. The conflict must be reported to the project engineer for resolution.
 
@@ -119,4 +118,20 @@ References
 plans/requirements.md: Functional requirements, configuration structure, and JSON output format for Season_Episode_builder.py.
 plans/coding_conventions.md: Coding practices and provider conventions.
 config/paths.example.txt: Configuration template.
+
+Provider Precedence
+
+Providers are listed in config/paths.txt under [meta_providers] (e.g., tvmaze, tmdb, trakt, rotten_tomatoes).
+The order defines their precedence for downstream processes (e.g., crawler, file organizer), where higher-priority providers (e.g., tvmaze) are preferred for season/episode naming and overview selection.
+All providers’ metadata is included in data/<series_slug>/<series_name>.json for each field (titles, overviews, ids, air_date), with no data discarded during merging.
+The order of provider keys in data/<series_slug>/<series_name>.json (e.g., titles: { "tvmaze": "...", "tmdb": "..." }) matches the order in [meta_providers] to ensure downstream scripts recognize the priority of providers.
+
+Logging (Season_Episode_builder.py)
+
+Script actions: logs/<series_slug>/<series_slug>_builder.log (e.g., logs/ax_men/ax_men_builder.log).
+Provider actions: logs/<series_slug>/<series_slug>_WOOD (e.g., logs/ax_men/ax_men_provider.log).
+Both logs reside in logs/<series_slug>/ and are written in append mode.
+Providers log through Season_Episode_builder.py’s logging mechanism.
+These requirements apply only to Season_Episode_builder.py and its provider scripts (tvmaze.py, tmdb.py, trakt.py, rotten_tomatoes.py).
+Note: Logging for downstream scripts (file_organizer.py, series_folder_crawler.py, kodi_db_exporter.py) will be defined in future updates. This note will be removed when those directives are complete.
 

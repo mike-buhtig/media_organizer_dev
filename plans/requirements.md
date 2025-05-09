@@ -1,5 +1,4 @@
-Media Organizer Project Requirements
-This document outlines the functional and technical requirements for the Media Organizer project, which automates the organization and metadata management of TV series media files for integration with Kodi and NextPVR.
+Media Organizer Project RequirementsThis document outlines the functional and technical requirements for the Media Organizer project, which automates the organization and metadata management of TV series media files for integration with Kodi and NextPVR.
 Related Documents
 This document must be used in conjunction with:
 
@@ -9,7 +8,7 @@ plans/script_relationships.md: Describes script interactions and dependencies.Fa
 Governance Rules
 
 No Unauthorized Deletions: No sections, settings, or content in this document, other governing documents (coding_conventions.md, script_relationships.md), or configuration files (paths.txt, paths.example.txt) may be removed without explicit approval from the project engineer. All content serves a purpose, and unauthorized deletions may lead to loss of critical functionality or data.
-Preserve Script Logic: Scripts (Season_Episode_builder.py, file_organizer.py, series_folder_crawler.py, kodi_db_exporter.py, providers/<name>.py) are the primary storage of functional logic for the project. No logic within these scripts may be altered or removed, even if it appears unnecessary, without explicit approval from the project engineer. All logic must remain available to support current and future functionality.
+Preserve Script Logic: Scripts (Season_Episode_builder.py, file_organizer.py, series_folder_crawler.py, kodi_db_exporter.py, providers/.py) are the primary storage of functional logic for the project. No logic within these scripts may be altered or removed, even if it appears unnecessary, without explicit approval from the project engineer. All logic must remain available to support current and future functionality.
 Read All Documents Before Changes: All governing documents (coding_conventions.md, requirements.md, script_relationships.md) and configuration files (paths.txt, paths.example.txt) must be fully reviewed before making any changes to identify existing content, ensure compliance, and avoid conflicts or deletions.
 Report Conflicts: If a conflict is found between documents, within a document, or in script logic, no changes may be made. The conflict must be reported to the project engineer for resolution.
 
@@ -24,15 +23,15 @@ Configuration file: config/paths.txt with [meta_providers] and [series] sections
 
 
 Outputs:
-JSON file: data/<series_slug>/<series_name>.json (e.g., data/ax_men/Ax Men.json).
-Temporary files: tmp/<name>.json (e.g., tmp/tvmaze.json) per enabled provider.
+JSON file: data//.json (e.g., data/ax_men/Ax Men.json).
+Temporary files: tmp/.json (e.g., tmp/tvmaze.json) per enabled provider.
 
 
 Behavior:
 Read enabled providers from paths.txt’s [meta_providers] (e.g., tvmaze=enabled) in order (top to bottom), where order defines priority (tvmaze highest, rotten_tomatoes lowest).
 Call each provider’s get_metadata function to fetch metadata.
 Merge provider data into a single JSON with series_name, seasons, and episode details (titles, overview, ids, air_date), preserving raw provider data and respecting provider priority for downstream use (e.g., episode naming in series_folder_crawler.py, file_organizer.py).
-Delete tmp/<name>.json before writing to ensure fresh data.
+Delete tmp/.json before writing to ensure fresh data.
 
 
 JSON Output Format (for Season_Episode_builder.py):
@@ -88,12 +87,12 @@ Normalization of names for matching is handled by series_folder_crawler.py, not 
 Script: file_organizer.py
 Purpose: Organize media files into a structured directory based on metadata.
 Inputs:
-Series JSON: data/<series_slug>/<series_name>.json.
+Series JSON: data//.json.
 Configuration: paths.txt with [series] (e.g., series_path_1), OPERATION_MODE, CREATE_NFO.
 
 
 Outputs:
-Organized files in series_path_X/<series_name>/Season <N>/<series_name> - S<NN>E<NN>_<episode_name>.ext, using episode names from highest-priority provider (e.g., tvmaze).
+Organized files in series_path_X//Season / - SE_.ext, using episode names from highest-priority provider (e.g., tvmaze).
 Optional .nfo files if CREATE_NFO=true.
 
 
@@ -109,7 +108,7 @@ Generate .nfo files with metadata if enabled, respecting [meta_providers] priori
 Script: kodi_db_exporter.py
 Purpose: Export metadata to Kodi-compatible database format.
 Inputs:
-Series JSON: data/<series_slug>/<series_name>.json.
+Series JSON: data//.json.
 Configuration: paths.txt with USE_KODI.
 
 
@@ -139,12 +138,12 @@ CREATE_NFO: Generate .nfo files (true or false).
 
 
 [series]:
-Format: series_name_X = <name>, series_path_X = <path> (e.g., series_name_1 = The A-Team, series_path_1 = D:/NEXT PVR/RecordingDirectory/The A-Team).
+Format: series_name_X = , series_path_X =  (e.g., series_name_1 = The A-Team, series_path_1 = D:/NEXT PVR/RecordingDirectory/The A-Team).
 Maps series names to their file paths for series_folder_crawler.py and file_organizer.py.
 
 
 [meta_providers]:
-Format: <name>=enabled (e.g., tvmaze=enabled).
+Format: =enabled (e.g., tvmaze=enabled).
 Providers: tvmaze, tmdb, trakt, rotten_tomatoes (in priority order).
 Unique names for each provider, representing distinct metadata sources.
 
@@ -187,18 +186,30 @@ SCRAPE_DELAY=0.5
 2. Provider Modules
 
 Location: scripts/providers/
-Naming: <name>.py (e.g., tvmaze.py).
+Naming: .py (e.g., tvmaze.py).
 Function: Export get_metadata(series_name: str, config: ConfigParser) -> None.
-Output: Write metadata to tmp/<name>.json with raw provider data.
+Output: Write metadata to tmp/.json with raw provider data.
 
-3. Logging
+3. Logging (Season_Episode_builder.py)
 
-Location: logs/<series_slug>/builder.log (e.g., logs/ax_men/builder.log).
-Format: Timestamped entries (e.g., [2025-05-09 12:34:56] Fetching metadata from tvmaze).
+Script actions: logs/<series_slug>/<series_slug>_builder.log (e.g., logs/ax_men/ax_men_builder.log).
+Provider actions: logs/<series_slug>/<series_slug>_provider.log (e.g., logs/ax_men/ax_men_provider.log).
+Both logs reside in logs/<series_slug>/ and are written in append mode.
+Providers log through Season_Episode_builder.py’s logging mechanism.
+These requirements apply only to Season_Episode_builder.py and its provider scripts (tvmaze.py, tmdb.py, trakt.py, rotten_tomatoes.py).
+Note: Logging for downstream scripts (file_organizer.py, series_folder_crawler.py, kodi_db_exporter.py) will be defined in future updates. This note will be removed when those directives are complete.
+
 
 References
 
 plans/coding_conventions.md: Coding practices and provider conventions.
 plans/script_relationships.md: Script interactions and dependencies.
 config/paths.example.txt: Configuration template.
+
+Provider Precedence
+
+Providers are listed in config/paths.txt under [meta_providers] (e.g., tvmaze, tmdb, trakt, rotten_tomatoes).
+The order defines their precedence for downstream processes (e.g., crawler, file organizer), where higher-priority providers (e.g., tvmaze) are preferred for season/episode naming and overview selection.
+All providers’ metadata is included in data/<series_slug>/<series_name>.json for each field (titles, overviews, ids, air_date), with no data discarded during merging.
+The order of provider keys in data/<series_slug>/<series_name>.json (e.g., titles: { "tvmaze": "...", "tmdb": "..." }) matches the order in [meta_providers] to ensure downstream scripts recognize the priority of providers.
 
