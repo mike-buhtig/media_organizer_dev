@@ -262,38 +262,40 @@ All scripts (Season_Episode_builder.py, file_organizer.py, series_folder_crawler
         {
           "season_number": <int>,
           "episodes": [
-          {
-            "episode_number": <int>,
-            "title": "<string>",
-            "overview": "<string>",
-            "id": "<string>",
-            "air_date": "<YYYY-MM-DD or empty>"
-          }
-        ]
-      }
-    ]
-Logs to logs/<series_slug>/<series_slug>_provider.log with [trakt] prefix.
-Dependencies:
-Python libraries: requests (pip install requests).
-Trakt API client ID (valid key in config['trakt']['TRAKT_CLIENT_ID']).
-Behavior:
-Searches Trakt API for series by title, retrieves slug.
-Fetches series summary and seasons with extended episode data.
-Cleans episode titles (removes quotes, backslashes).
-Logs missing overviews, cleaned titles, and script version at start.
-Handles API errors gracefully, logging failures.
-Integration:
-Called by Season_Episode_builder.py via importlib.import_module("providers.trakt").
-JSON output merged into data/<series_slug>/<series_name>.json.
-Governance:
-Must use logging.getLogger('Season_Episode_builder') for logging, matching tvmaze.py and tmdb.py.
-Must preserve inline comments, notes, and change logs.
-Must minimize changes to working logic, only modifying output format, logging, or filename as required.
-Changelog Format:
-First line: # <script_name> vX.Y.Z (e.g., # trakt.py v1.0.3).
-Entries: # [X.Y.Z] - YYYY-MM-DD: <description>, appended to preserve history.
-Logging:
-First log line of any run must include script version (e.g., [trakt] trakt.py v1.0.3 starting), which implies that all scripts must have the ability to include the version when they print
-All logs must use [trakt] prefix for console and file output.
-Verification Rule: All assumptions about configuration files (e.g., paths.txt), data availability (e.g., API responses), or repository contents (e.g., coding_conventions.md) must be verified against source files (paths.example.txt, API documentation, repository) before coding. No changes may be based on unverified assumptions.
-
+            {
+              "episode_number": <int>,
+              "title": "<string>",
+              "overview": "<string>",
+              "id": "<string>",
+              "air_date": "<YYYY-MM-DD or empty>"
+            }
+          ]
+        }
+      ]
+    }
+    ```
+  - Logs to `logs/<series_slug>/<series_slug>_provider.log` with `[trakt]` prefix.
+- **Dependencies**:
+  - Python libraries: `requests` (pip install requests).
+  - Trakt API client ID (valid key in `config['trakt']['TRAKT_CLIENT_ID']`).
+- **Behavior**:
+  - Searches Trakt API for series by title, retrieves slug.
+  - Fetches series summary and seasons with extended episode data.
+  - Cleans episode titles (removes quotes, backslashes).
+  - Logs missing overviews, cleaned titles, and script version at start.
+  - Handles API errors gracefully, logging failures.
+- **Integration**:
+  - Called by `Season_Episode_builder.py` via `importlib.import_module("providers.trakt")`.
+  - JSON output merged into `data/<series_slug>/<series_name>.json`.
+- **Governance**:
+  - Must use `logging.getLogger('Season_Episode_builder')` for logging, matching `tvmaze.py` and `tmdb.py`.
+  - Must preserve inline comments, notes, and change logs.
+  - Must minimize changes to working logic, only modifying output format, logging, or filename as required.
+  - **Changelog Format**:
+    - First line: `# <script_name> vX.Y.Z` (e.g., `# trakt.py v1.0.3`).
+    - Entries: `# [X.Y.Z] - YYYY-MM-DD: <description>`, appended to preserve history.
+  - **Logging**:
+    - First log line of any run must include script version (e.g., `[trakt] trakt.py v1.0.3 starting`), which implies that all scripts must have the ability to include the version when they print
+    - All logs must use `[trakt]` prefix for console and file output.
+	
+	- **Verification Rule**: All assumptions about configuration files (e.g., `paths.txt`), data availability (e.g., API responses), or repository contents (e.g., `coding_conventions.md`) must be verified against source files (`paths.example.txt`, API documentation, repository) before coding. No changes may be based on unverified assumptions.
