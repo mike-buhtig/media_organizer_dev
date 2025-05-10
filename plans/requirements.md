@@ -216,3 +216,84 @@ The order of provider keys in data/<series_slug>/<series_name>.json (e.g., title
 - **Detailed Inline Documentation**: 
 
 All scripts (Season_Episode_builder.py, file_organizer.py, series_folder_crawler.py, kodi_db_exporter.py, providers/<name>.py) must include detailed inline comments documenting each significant step, including but not limited to API calls, file reads/writes, data transformations, error handling, and interactions with other scripts or configuration files. Comments must clearly describe the purpose of each code block, inputs, outputs, and dependencies to ensure traceability and clarity for debugging and maintenance. This requirement prioritizes inline comments over external documentation, though additional logging may be mandated for troubleshooting if needed.
+
+## Core Scripts: Season_Episode_builder.py
+- **Purpose**: Orchestrates metadata fetching from providers, merges data, and writes output JSON for series organization.
+- **Input**:
+  - Command-line argument `--series` (e.g., `"Ax Men"`).
+  - Configuration from `config/paths.txt` with `[general]` (TEMP_FOLDER, LOG_PATH, JSON_FOLDER) and `[meta_providers]` (enabled providers).
+- **Output**:
+  - JSON file at `data/<series_slug>/<series_name>.json` with merged metadata from providers.
+  - Logs to `logs/<series_slug>/<series_slug>_builder.log` (script execution) and `logs/<series_slug>/<series_slug>_provider.log` (provider execution).
+- **Dependencies**:
+  - Python libraries: `requests` (pip install requests).
+  - Provider scripts in `scripts/providers/` (e.g., `tvmaze.py`, `tmdb.py`, `trakt.py`).
+- **Behavior**:
+  - Parses series name from command-line argument.
+  - Loads configuration and initializes logging.
+  - Dynamically imports enabled providers and calls their `get_metadata`.
+  - Merges provider JSON outputs into a single file.
+  - Logs script version at start, provider import attempts, file existence checks, and detailed errors (including tracebacks).
+- **Integration**:
+  - Calls provider scripts via `importlib.import_module("providers.<name>")`.
+  - Output JSON used by other scripts (e.g., `file_organizer.py`).
+- **Governance**:
+  - Must use `logging.getLogger('Season_Episode_builder')` for logging.
+  - Must include detailed inline comments for all significant steps.
+  - Must preserve inline comments, notes, and change logs.
+  - **Changelog Format**:
+    - First line: `# Season_Episode_builder.py vX.Y.Z`.
+    - Entries: `# [X.Y.Z] - YYYY-MM-DD: <description>`, appended.
+  - **Logging**:
+    - First log line must include script version (e.g., `[builder] Season_Episode_builder.py v1.0.11 starting`).
+    - Logs must include provider import attempts, file existence checks, and tracebacks for errors.
+
+## Provider Scripts: trakt.py
+- **Purpose**: Fetches metadata (seasons, episodes, titles, overviews, air dates) from Trakt.tv API for a given series and writes standardized JSON output.
+- **Input**:
+  - Series name (string, e.g., "Ax Men") passed via `get_metadata(title, config)`.
+  - Configuration from `config/paths.txt` with `[general]` (TEMP_FOLDER, LOG_PATH) and `[trakt]` (TRAKT_CLIENT_ID).
+- **Output**:
+  - JSON file at `tmp/trakt.json` with structure:
+    ```json
+    {
+      "series_name": "<series_name>",
+      "seasons": [
+        {
+          "season_number": <int>,
+          "episodes": [
+          {
+            "episode_number": <int>,
+            "title": "<string>",
+            "overview": "<string>",
+            "id": "<string>",
+            "air_date": "<YYYY-MM-DD or empty>"
+          }
+        ]
+      }
+    ]
+Logs to logs/<series_slug>/<series_slug>_provider.log with [trakt] prefix.
+Dependencies:
+Python libraries: requests (pip install requests).
+Trakt API client ID (valid key in config['trakt']['TRAKT_CLIENT_ID']).
+Behavior:
+Searches Trakt API for series by title, retrieves slug.
+Fetches series summary and seasons with extended episode data.
+Cleans episode titles (removes quotes, backslashes).
+Logs missing overviews, cleaned titles, and script version at start.
+Handles API errors gracefully, logging failures.
+Integration:
+Called by Season_Episode_builder.py via importlib.import_module("providers.trakt").
+JSON output merged into data/<series_slug>/<series_name>.json.
+Governance:
+Must use logging.getLogger('Season_Episode_builder') for logging, matching tvmaze.py and tmdb.py.
+Must preserve inline comments, notes, and change logs.
+Must minimize changes to working logic, only modifying output format, logging, or filename as required.
+Changelog Format:
+First line: # <script_name> vX.Y.Z (e.g., # trakt.py v1.0.3).
+Entries: # [X.Y.Z] - YYYY-MM-DD: <description>, appended to preserve history.
+Logging:
+First log line of any run must include script version (e.g., [trakt] trakt.py v1.0.3 starting), which implies that all scripts must have the ability to include the version when they print
+All logs must use [trakt] prefix for console and file output.
+Verification Rule: All assumptions about configuration files (e.g., paths.txt), data availability (e.g., API responses), or repository contents (e.g., coding_conventions.md) must be verified against source files (paths.example.txt, API documentation, repository) before coding. No changes may be based on unverified assumptions.
+
