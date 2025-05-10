@@ -213,3 +213,6 @@ The order defines their precedence for downstream processes (e.g., crawler, file
 All providers’ metadata is included in data/<series_slug>/<series_name>.json for each field (titles, overviews, ids, air_date), with no data discarded during merging.
 The order of provider keys in data/<series_slug>/<series_name>.json (e.g., titles: { "tvmaze": "...", "tmdb": "..." }) matches the order in [meta_providers] to ensure downstream scripts recognize the priority of providers.
 
+- **Detailed Inline Documentation**: 
+
+All scripts (Season_Episode_builder.py, file_organizer.py, series_folder_crawler.py, kodi_db_exporter.py, providers/<name>.py) must include detailed inline comments documenting each significant step, including but not limited to API calls, file reads/writes, data transformations, error handling, and interactions with other scripts or configuration files. Comments must clearly describe the purpose of each code block, inputs, outputs, and dependencies to ensure traceability and clarity for debugging and maintenance. This requirement prioritizes inline comments over external documentation, though additional logging may be mandated for troubleshooting if needed.
