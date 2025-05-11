@@ -1,9 +1,13 @@
-Media Organizer Project RequirementsThis document outlines the functional and technical requirements for the Media Organizer project, which automates the organization and metadata management of TV series media files for integration with Kodi and NextPVR.
+Media Organizer Project Requirements
+This document outlines the functional and technical requirements for the Media Organizer project, which automates the organization and metadata management of TV series media files for integration with Kodi and NextPVR.
+
 Related Documents
 This document must be used in conjunction with:
 
 plans/coding_conventions.md: Defines coding practices, including no hard-coding of providers.
-plans/script_relationships.md: Describes script interactions and dependencies.Failure to consult all three documents may result in non-compliant code or functionality.
+plans/to_do.md: Lists future tasks.  These need to be allowed for when coding so that we will be ready when these tasks begin.
+config/paths.example.txt: This is a copy of config/paths.txt with the secrets removed.  This reference is to ensure that we maintain the same configurations.  No code is to be written without consulting it.  If code is written that needs configuration, it will be edited and the new config will be added.
+plans/script_relationships.md: Describes script interactions and dependencies.Failure to consult all five documents may result in non-compliant code or functionality.
 
 Governance Rules
 

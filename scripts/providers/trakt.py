@@ -1,36 +1,60 @@
-# providers/trakt_provider.py V 1.0.2
-# Fetches metadata from Trakt and writes standardized output to a temp file
-# Change 1: Added clean_title function to strip quotes and backslashes from episode titles
-# Change 2: Applied title cleaning to ep.get("title") to fix malformed titles (e.g., "\"By Air, Land and Sea\"")
-# Change 3: Updated seasons endpoint to use ?extended=full,episodes to include episode overviews
-# Change 4: Added logging for missing episode overviews
-# Change 5: Converted seasons from a dictionary to a list of {"season_number": <int>, "episodes": [...]}.
-# Change 6: Added logging to write to logs/<series_slug>/<series_slug>_provider.log in append mode, per requirements.md.
-# Change 7: Preserved existing Trakt API logic, error handling, and file deletion before writing.
-# Change 8: Ensured tmp/trakt.json is written in the format specified by coding_conventions.md.
-# Change 9: Removed slugify and custom logger.
-# Change 10: Uses logging.getLogger('Season_Episode_builder'), matching tvmaze.py and tmdb.py.
-# Change 11: Logs write to <series_slug>_provider.log via builder’s handler.
-# Change 12: Added detailed inline comments for each step (e.g., client init, file operations).
-# Change 13: Kept list-based seasons and Trakt API logic.
+# trakt.py v1.0.3
+# Fetches metadata from Trakt.tv and writes standardized output to a temp file
+#
+# Requirements:
+# - pip install requests
+#
+# Change Log:
+# [1.0.0] - 2025-04-01: Initial version, fetches seasons/episodes
+# [1.0.1] - 2025-04-15: Added clean_title function, fixed malformed titles
+# [1.0.2] - 2025-05-01: Updated seasons endpoint to extended=full,episodes, added logging for missing overviews
+# [1.0.3] - 2025-05-16: Changed output to tmp/trakt.json, used logging module, aligned JSON with Season_Episode_builder.py, added detailed comments
 
-import json
-import logging
 import os
+import json
+import requests
+import re
+import logging
 from configparser import ConfigParser
-from trakt import TraktClient
 
-def get_metadata(series_name: str, config: ConfigParser) -> None:
-    """Fetch series metadata from Trakt and write to tmp/trakt.json.
+# Initialize logger to match Season_Episode_builder.py
+logger = logging.getLogger('Season_Episode_builder')
+
+# Base URL for Trakt.tv API
+TRAKT_API = "https://api.trakt.tv"
+
+def clean_title(title: str) -> str:
+    """Clean episode titles by removing quotes and backslashes.
     
     Args:
-        series_name (str): Name of the series (e.g., "Ax Men").
-        config (ConfigParser): Configuration from paths.txt, including [general] and [trakt] sections.
+        title (str): Raw episode title from Trakt API.
+    
+    Returns:
+        str: Cleaned title with quotes and backslashes removed.
+    
+    Notes:
+        - Logs cleaning action if title changes.
+        - Returns empty string if title is None.
+    """
+    if not title:
+        logger.info("[trakt] Cleaned title: None -> ''")
+        return ""
+    cleaned = re.sub(r'^"|"$|\\', '', title.strip())
+    if cleaned != title:
+        logger.info(f"[trakt] Cleaned title: '{title}' -> '{cleaned}'")
+    return cleaned
+
+def get_metadata(title: str, config: ConfigParser) -> None:
+    """Fetch series metadata from Trakt.tv and write to tmp/trakt.json.
+    
+    Args:
+        title (str): Series name (e.g., "Ax Men").
+        config (ConfigParser): Configuration from paths.txt with [general] and [trakt] sections.
     
     Outputs:
         Writes tmp/trakt.json with series metadata in the format:
         {
-            "series_name": "<series_name>",
+            "series_name": "<title>",
             "seasons": [
                 {
                     "season_number": <int>,
@@ -40,7 +64,7 @@ def get_metadata(series_name: str, config: ConfigParser) -> None:
                             "title": "<string>",
                             "overview": "<string>",
                             "id": "<string>",
-                            "air_date": "<YYYY-MM-DD>"
+                            "air_date": "<string>"
                         }
                     ]
                 }
@@ -48,88 +72,112 @@ def get_metadata(series_name: str, config: ConfigParser) -> None:
         }
     
     Raises:
-        ValueError: If no series is found.
-        Exception: For API or file operation failures.
+        Exception: If API requests or file operations fail.
     
     Notes:
-        - Uses Season_Episode_builder.py's logger to write to logs/<series_slug>/<series_slug>_provider.log.
-        - Logs are prefixed with [trakt] for console visibility.
-        - Depends on python-trakt library (pip install python-trakt).
+        - Uses Trakt API with client ID from config['trakt']['TRAKT_CLIENT_ID'].
+        - Logs to logs/<series_slug>/<series_slug>_provider.log via Season_Episode_builder.py's logger.
+        - Matches tvmaze.py and tmdb.py logging style with [trakt] prefix.
+        - Depends on requests library (pip install requests).
     """
-    # Get the builder's logger for consistent logging
-    logger = logging.getLogger('Season_Episode_builder')
-    logger.info(f"[trakt] Starting metadata fetch for series: {series_name}")
+    logger.info(f"[trakt] Starting metadata fetch for series: {title}")
+
+    # Get temp folder from config
+    base_temp = config["general"]["TEMP_FOLDER"]
+    
+    # Get Trakt client ID from config
+    client_id = config["trakt"]["TRAKT_CLIENT_ID"]
+    
+    # Set up API headers
+    headers = {
+        "Content-Type": "application/json",
+        "trakt-api-version": "2",
+        "trakt-api-key": client_id
+    }
+    logger.debug(f"[trakt] API headers: {headers}")
+
+    # Create temp folder if it doesn't exist
+    os.makedirs(base_temp, exist_ok=True)
 
     try:
-        # Initialize Trakt client with API key from config
-        client = TraktClient(api_key=config['trakt']['API_KEY'])
-        logger.info("[trakt] Initialized Trakt client")
-        
-        # Search for the series by name
-        series = client.search(series_name, search_type='show')
-        if not series:
-            logger.error(f"[trakt] No series found for {series_name}")
-            raise ValueError(f"No series found for {series_name}")
-        
-        # Extract the first matching series and its ID
-        series = series[0]
-        series_id = series.trakt
-        logger.info(f"[trakt] Found series: {series.title} (ID: {series_id})")
+        # Search for series by title
+        search_url = f"{TRAKT_API}/search/show?query={requests.utils.quote(title)}"
+        logger.debug(f"[trakt] Search URL: {search_url}")
+        resp = requests.get(search_url, headers=headers)
+        if resp.status_code != 200 or not resp.json():
+            logger.error("[trakt] No matching show found")
+            return
 
-        # Fetch detailed series data including seasons and episodes
-        show = client.get_show(series_id)
-        seasons_data = []
-        
-        # Iterate through seasons
-        for season in show.seasons:
-            season_number = season.season
-            episodes = []
-            # Process each episode in the season
-            for episode in season.episodes:
-                episodes.append({
-                    "episode_number": episode.number,
-                    "title": episode.title or "Unknown",
-                    "overview": episode.overview or "",
-                    "id": str(episode.trakt),
-                    "air_date": episode.first_aired.strftime('%Y-%m-%d') if episode.first_aired else ""
-                })
-            # Add season data to list
-            seasons_data.append({
-                "season_number": season_number,
-                "episodes": episodes
-            })
-            logger.info(f"[trakt] Processed season {season_number} with {len(episodes)} episodes")
+        # Extract show data from first search result
+        show = resp.json()[0]["show"]
+        slug = show["ids"]["slug"]
+        logger.info(f"[trakt] Found series: {show['title']} (slug: {slug})")
 
-        # Construct output JSON with series name and seasons
+        # Fetch series summary
+        summary_url = f"{TRAKT_API}/shows/{slug}?extended=full"
+        logger.debug(f"[trakt] Summary URL: {summary_url}")
+        summary_resp = requests.get(summary_url, headers=headers)
+        summary = summary_resp.json() if summary_resp.status_code == 200 else {}
+        logger.debug(f"[trakt] Summary data fetched")
+
+        # Fetch seasons and episodes
+        seasons_url = f"{TRAKT_API}/shows/{slug}/seasons?extended=full,episodes"
+        logger.debug(f"[trakt] Seasons URL: {seasons_url}")
+        seasons_resp = requests.get(seasons_url, headers=headers)
+        all_seasons = seasons_resp.json() if seasons_resp.status_code == 200 else []
+        logger.debug(f"[trakt] Seasons data fetched: {len(all_seasons)} seasons")
+
+        # Initialize output structure
         output = {
-            "series_name": series_name,
-            "seasons": seasons_data
+            "series_name": show.get("title"),
+            "seasons": []
         }
 
-        # Prepare output file path in tmp/ directory
-        temp_folder = config['general']['TEMP_FOLDER']
-        os.makedirs(temp_folder, exist_ok=True)
-        output_path = os.path.join(temp_folder, 'trakt.json')
+        # Process each season
+        for season in all_seasons:
+            snum = season.get("number")
+            episodes = season.get("episodes", [])
+            season_data = {
+                "season_number": snum,
+                "episodes": []
+            }
+            
+            # Process each episode
+            for ep in episodes:
+                ep_title = clean_title(ep.get("title"))
+                ep_overview = ep.get("overview", "")
+                if not ep_overview:
+                    logger.info(f"[trakt] Missing overview for S{snum:02d}E{ep.get('number'):02d}")
+                air_date = ep.get("first_aired")
+                if air_date:
+                    air_date = air_date[:10]  # Truncate to YYYY-MM-DD
+                ep_data = {
+                    "episode_number": ep.get("number"),
+                    "title": ep_title,
+                    "overview": ep_overview,
+                    "id": str(ep["ids"]["trakt"]),
+                    "air_date": air_date or ""
+                }
+                season_data["episodes"].append(ep_data)
+            
+            # Add season to output if it has episodes
+            if season_data["episodes"]:
+                output["seasons"].append(season_data)
+                logger.info(f"[trakt] Processed season {snum} with {len(season_data['episodes'])} episodes")
+
+        # Define output path
+        output_path = os.path.join(base_temp, "trakt.json")
         
-        # Delete existing tmp/trakt.json to ensure fresh data
+        # Delete existing file if present
         if os.path.exists(output_path):
-            os.remove(output_path)
             logger.info(f"[trakt] Deleted existing {output_path}")
-        
-        # Write metadata to tmp/trakt.json
-        with open(output_path, 'w', encoding='utf-8') as f:
+            os.remove(output_path)
+
+        # Write JSON output
+        with open(output_path, "w", encoding="utf-8") as f:
             json.dump(output, f, indent=2)
         logger.info(f"[trakt] Metadata written to {output_path}")
 
     except Exception as e:
-        # Log any errors and re-raise for builder to handle
-        logger.error(f"[trakt] Failed to fetch metadata for {series_name}: {str(e)}")
+        logger.error(f"[trakt] Failed to fetch metadata for {title}: {str(e)}")
         raise
-
-if __name__ == "__main__":
-    # Standalone test for debugging
-    from configparser import ConfigParser
-    config = ConfigParser()
-    config.read('config/paths.txt')
-    logging.basicConfig(level=logging.INFO)
-    get_metadata("Ax Men", config)
