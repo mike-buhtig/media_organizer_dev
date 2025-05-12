@@ -1,24 +1,38 @@
 Repository Layout
-This document provides links to all key documents in the mike-buhtig/media_organizer_dev repository (dev-v1.0.10 branch) for easy access.
+This document centralizes links to all key documents and scripts in the mike-buhtig/media_organizer_dev repository (dev-v1.0.10 branch) and describes the folder structure for administration and development.
 Plans
+Governance and planning documents defining project requirements, coding standards, and script interactions.
 
+layout.md: This document, listing all repository files and structure.
 requirements.md: Project requirements, including governance, functional, and technical rules.
 coding_conventions.md: Coding standards, e.g., no hard-coding, changelog format.
 script_relationships.md: Script interactions and dependencies.
+to_do.md: Future tasks to prepare for in coding.
 
 Config
+Configuration files for script settings and templates.
 
-paths.txt: Configuration settings for scripts.
-paths.example.txt: Template for paths.txt.
+paths.txt: Active configuration with API keys and settings.
+paths.example.txt: Template for paths.txt without sensitive data.
 
-Notes
+Scripts
+Core and provider scripts implementing the Media Organizer functionality.
+Core Scripts
 
-Add other documents (e.g., scripts, logs) as needed.
-All URLs are for the dev-v1.0.10 branch.
+Season_Episode_builder.py: Orchestrates metadata fetching and JSON merging.
+file_organizer.py: Organizes media files into structured directories.
+series_folder_crawler.py: Crawls series folders for file mapping.
+kodi_db_exporter.py: Exports metadata to Kodi database.
 
+Provider Scripts
+
+tvmaze.py: Fetches metadata from TVmaze API.
+tmdb.py: Fetches metadata from TMDb API.
+trakt.py: Fetches metadata from Trakt API.
+rotten_tomatoes.py: Scrapes metadata from Rotten Tomatoes.
 
 Repository Structure
-The Media Organizer project uses the following folder structure to organize scripts, data, logs, and configurations:
+The folder structure organizes scripts, data, logs, and configurations, as defined in config/paths.txt (JSON_FOLDER, TEMP_FOLDER, LOG_PATH).
 
 config/: Configuration files.
 paths.txt: Active configuration with API keys and settings.
@@ -35,11 +49,11 @@ logs/<series_slug>/<series_slug>_provider.log (e.g., logs/ax_men/ax_men_provider
 
 
 plans/: Governance and planning documents.
-requirements.md: Project requirements (this file).
+requirements.md: Project requirements.
 coding_conventions.md: Coding standards.
 script_relationships.md: Script interactions and dependencies.
 to_do.md: Future tasks.
-layout.md: folder locations and urls to access them
+layout.md: This document.
 
 
 scripts/: Core and provider scripts.
@@ -58,7 +72,12 @@ tmp/<provider>.json (e.g., tmp/tvmaze.json).
 
 
 
-All scripts and processes must adhere to this structure, as defined in config/paths.txt (JSON_FOLDER, TEMP_FOLDER, LOG_PATH).
+Notes
+
+All scripts and processes must adhere to the repository structure and governing documents (requirements.md, coding_conventions.md, script_relationships.md).
+Additional files (e.g., logs, new scripts) may be added as needed.
+All URLs are for the dev-v1.0.10 branch.
+
 
 
 
