@@ -16,6 +16,52 @@ Preserve Script Logic: Scripts (Season_Episode_builder.py, file_organizer.py, se
 Read All Documents Before Changes: All governing documents (coding_conventions.md, requirements.md, script_relationships.md) and configuration files (paths.txt, paths.example.txt) must be fully reviewed before making any changes to identify existing content, ensure compliance, and avoid conflicts or deletions.
 Report Conflicts: If a conflict is found between documents, within a document, or in script logic, no changes may be made. The conflict must be reported to the project engineer for resolution.
 
+Repository Structure
+The Media Organizer project uses the following folder structure to organize scripts, data, logs, and configurations:
+
+config/: Configuration files.
+paths.txt: Active configuration with API keys and settings.
+paths.example.txt: Template for paths.txt without sensitive data.
+
+
+data/: Output JSON files for series metadata.
+data/<series_slug>/<series_name>.json (e.g., data/ax_men/Ax Men.json).
+
+
+logs/: Log files for script and provider actions.
+logs/<series_slug>/<series_slug>_builder.log (e.g., logs/ax_men/ax_men_builder.log).
+logs/<series_slug>/<series_slug>_provider.log (e.g., logs/ax_men/ax_men_provider.log).
+
+
+plans/: Governance and planning documents.
+requirements.md: Project requirements (this file).
+coding_conventions.md: Coding standards.
+script_relationships.md: Script interactions and dependencies.
+to_do.md: Future tasks.
+layout.md: folder locations and urls to access them
+
+
+scripts/: Core and provider scripts.
+Season_Episode_builder.py: Metadata orchestration.
+file_organizer.py: File organization.
+series_folder_crawler.py: Folder crawling.
+kodi_db_exporter.py: Kodi database export.
+providers/:
+tvmaze.py, tmdb.py, trakt.py, rotten_tomatoes.py: Provider-specific metadata fetching.
+
+
+
+
+tmp/: Temporary JSON files from providers.
+tmp/<provider>.json (e.g., tmp/tvmaze.json).
+
+
+
+All scripts and processes must adhere to this structure, as defined in config/paths.txt (JSON_FOLDER, TEMP_FOLDER, LOG_PATH).
+
+
+
+
 Functional Requirements
 1. Metadata Fetching
 
