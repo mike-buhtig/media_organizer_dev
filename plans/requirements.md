@@ -349,4 +349,12 @@ All scripts (Season_Episode_builder.py, file_organizer.py, series_folder_crawler
     - First log line of any run must include script version (e.g., `[trakt] trakt.py v1.0.3 starting`), which implies that all scripts must have the ability to include the version when they print
     - All logs must use `[trakt]` prefix for console and file output.
 	
+	### Logging Flow
+- `Season_Episode_builder.py`:
+  - `builder_logger` (`Season_Episode_builder.builder`): Writes to `logs/<series_slug>/<series_slug>_builder.log` for version, provider fetch, JSON write.
+  - `provider_logger` (`Season_Episode_builder.provider`): Writes to `logs/<series_slug>/<series_slug>_provider.log` for JSON loading, errors, and provider logs.
+- Providers (e.g., `rotten_tomatoes.py`):
+  - Must log to `Season_Episode_builder.provider`, not custom files (e.g., `logs/builder.log`).
+  - Legacy logging (e.g., `log_message`) must be updated to use `provider_logger`.
+  
 	- **Verification Rule**: All assumptions about configuration files (e.g., `paths.txt`), data availability (e.g., API responses), or repository contents (e.g., `coding_conventions.md`) must be verified against source files (`paths.example.txt`, API documentation, repository) before coding. No changes may be based on unverified assumptions.

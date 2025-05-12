@@ -1,18 +1,19 @@
-Coding Conventions for Media Organizer ProjectThis document outlines coding conventions and directives for the Media Organizer project to ensure maintainable, flexible, and consistent code across all scripts (Season_Episode_builder.py, file_organizer.py, etc.). These conventions prioritize dynamic configuration over hard-coding to prevent errors and simplify future extensions.
-Related Documents
+### Coding Conventions for Media Organizer ProjectThis document outlines coding conventions and directives for the Media Organizer project to ensure maintainable, flexible, and consistent code across all scripts (Season_Episode_builder.py, file_organizer.py, etc.). These conventions prioritize dynamic configuration over hard-coding to prevent errors and simplify future extensions.
+### Related Documents
 This document must be used in conjunction with:
 
 plans/requirements.md: Defines functional requirements and configuration structure (e.g., paths.txt).
 plans/script_relationships.md: Describes script interactions and dependencies.Failure to consult all three documents may result in non-compliant code (e.g., hard-coding providers).
 
-Governance Rules
+### Governance Rules
 
-No Unauthorized Deletions: No sections, settings, or content in this document, other governing documents (requirements.md, script_relationships.md), or configuration files (paths.txt, paths.example.txt) may be removed without explicit approval from the project engineer. All content serves a purpose, and unauthorized deletions may lead to loss of critical functionality or data.
+### No Unauthorized Deletions: 
+No sections, settings, or content in this document, other governing documents (requirements.md, script_relationships.md), or configuration files (paths.txt, paths.example.txt) may be removed without explicit approval from the project engineer. All content serves a purpose, and unauthorized deletions may lead to loss of critical functionality or data.
 Preserve Script Logic: Scripts (Season_Episode_builder.py, file_organizer.py, series_folder_crawler.py, kodi_db_exporter.py, providers/.py) are the primary storage of functional logic for the project. No logic within these scripts may be altered or removed, even if it appears unnecessary, without explicit approval from the project engineer. All logic must remain available to support current and future functionality.
 Read All Documents Before Changes: All governing documents (coding_conventions.md, requirements.md, script_relationships.md) and configuration files (paths.txt, paths.example.txt) must be fully reviewed before making any changes to identify existing content, ensure compliance, and avoid conflicts or deletions.
 Report Conflicts: If a conflict is found between documents, within a document, or in script logic, no changes may be made. The conflict must be reported to the project engineer for resolution.
 
-Directive: No Hard-Coding of Providers
+### Directive: No Hard-Coding of Providers
 Hard-coding of providers is strictly prohibited. Scripts must not include static lists of providers, provider names, or provider module references. Instead, all provider-related functionality must be driven by conventions and configuration files, specifically config/paths.txt. This ensures:
 
 Flexibility to add, remove, or rename providers without modifying script code.
@@ -25,7 +26,7 @@ Mismatched provider names between script and paths.txt, leading to no providers 
 Inability to add new providers without code changes.
 Maintenance overhead when renaming providers.
 
-Configuration Files
+### Configuration Files
 
 config/paths.txt: Contains project configuration, including [meta_providers], [series], and provider-specific settings (e.g., API keys, scrape delays).
 [meta_providers]: Lists providers and their status (e.g., tvmaze=enabled).
@@ -34,7 +35,7 @@ config/paths.txt: Contains project configuration, including [meta_providers], [s
 
 config/paths.example.txt: A template identical to paths.txt except for placeholder settings (e.g., your_tvmaze_api_key, SCRAPE_DELAY). Users copy this to create paths.txt and fill in valid settings.
 
-Provider Naming and Loading Conventions
+### Provider Naming and Loading Conventions
 The following conventions govern how scripts load and interact with function-based providers (e.g., tvmaze.py). These apply to all scripts that fetch metadata, such as Season_Episode_builder.py.
 1. Provider Configuration in paths.txt
 
@@ -141,7 +142,7 @@ series_path_8 = D:/Recordings/New Series
 
 
 
-Implementation Notes
+### Implementation Notes
 
 Use Python’s importlib.import_module for dynamic imports to avoid hard-coded import statements.
 Validate provider modules by checking for the get_metadata function before calling it.
@@ -175,3 +176,8 @@ Providers use Season_Episode_builder.py’s logging mechanism for consistent for
 These conventions apply only to Season_Episode_builder.py and its providers (tvmaze.py, tmdb.py, trakt.py, rotten_tomatoes.py).
 Note: Logging for downstream scripts (file_organizer.py, series_folder_crawler.py, kodi_db_exporter.py) will be defined in future updates. This note will be removed when those directives are complete.
 
+### Script Modification Rules
+- **Provider-First Fixes**: Update provider scripts to match expected JSON (`{"series_name": "", "seasons": [{"season_number": 1, "episodes": []}, ...]}`) and logging (`Season_Episode_builder.provider`) before modifying `Season_Episode_builder.py`.
+- **Pause for Ambiguity**: When multiple fix paths exist (e.g., provider vs. builder), pause and ask the user, referencing the provider-first policy.
+- **Single-Script Changes**: Modify one script per iteration unless approved, testing each change independently.
+- **Log Preservation**: Retain all log files (e.g., `logs/builder.log`) during transitions until new logging is verified.
