@@ -63,6 +63,9 @@ All scripts and processes must adhere to this structure, as defined in config/pa
 
 
 base dev URL: https://github.com/mike-buhtig/media_organizer_dev
+
 plans url: https://github.com/mike-buhtig/media_organizer_dev/tree/dev-v1.0.10/plans
+
 requirements.md URL: https://github.com/mike-buhtig/media_organizer_dev/blob/dev-v1.0.10/plans/requirements.md
+
 Layout.md URL:  URL: https://github.com/mike-buhtig/media_organizer_dev/blob/dev-v1.0.10/plans/layout.md
