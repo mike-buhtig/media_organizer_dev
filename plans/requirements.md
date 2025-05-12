@@ -16,6 +16,7 @@ Preserve Script Logic: Scripts (Season_Episode_builder.py, file_organizer.py, se
 Read All Documents Before Changes: All governing documents (coding_conventions.md, requirements.md, script_relationships.md) and configuration files (paths.txt, paths.example.txt) must be fully reviewed before making any changes to identify existing content, ensure compliance, and avoid conflicts or deletions.
 Report Conflicts: If a conflict is found between documents, within a document, or in script logic, no changes may be made. The conflict must be reported to the project engineer for resolution.
 
+Technical Requirements
 Repository Structure
 The Media Organizer project uses the following folder structure to organize scripts, data, logs, and configurations:
 
