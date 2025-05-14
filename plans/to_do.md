@@ -36,3 +36,6 @@ This document tracks planned improvements and tasks for the media_organizer_dev 
   - Preserve changelog format: `# <script_name> vX.Y.Z`, entries `# [X.Y.Z] - YYYY-MM-DD: <description>`.
   - Log script version at start of each run.
 - Changes must be verified with test runs (`python scripts\Season_Episode_builder.py --series "Ax Men"`) before committing.
+
+## Future Enhancements: 
+- Extract MPA rating (e.g., “TV-PG”) and genre (e.g., “Reality/Documentary/Adventure”) from the series page card if the project succeeds.
