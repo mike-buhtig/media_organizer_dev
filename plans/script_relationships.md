@@ -129,7 +129,7 @@ The order of provider keys in data/<series_slug>/<series_name>.json (e.g., title
 Logging (Season_Episode_builder.py)
 
 Script actions: logs/<series_slug>/<series_slug>_builder.log (e.g., logs/ax_men/ax_men_builder.log).
-Provider actions: logs/<series_slug>/<series_slug>_WOOD (e.g., logs/ax_men/ax_men_provider.log).
+Provider actions: logs/<series_slug>/<series_slug>_provider.log (e.g., logs/ax_men/ax_men_provider.log).
 Both logs reside in logs/<series_slug>/ and are written in append mode.
 Providers log through Season_Episode_builder.py’s logging mechanism.
 These requirements apply only to Season_Episode_builder.py and its provider scripts (tvmaze.py, tmdb.py, trakt.py, rotten_tomatoes.py).

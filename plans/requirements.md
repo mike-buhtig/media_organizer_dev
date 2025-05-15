@@ -299,7 +299,18 @@ All scripts (Season_Episode_builder.py, file_organizer.py, series_folder_crawler
     - First log line must include script version (e.g., `[builder] Season_Episode_builder.py v1.0.11 starting`).
     - Logs must include provider import attempts, file existence checks, and tracebacks for errors.
 
-## Provider Scripts: trakt.py
+## Provider Scripts: 
+- Each provider script must output a JSON file to `tmp/<provider>.json` with the schema defined in `layout.md`. Providers must accept a `--series` argument to specify the series name. Logging must be to stdout using a logger named `Season_Episode_builder.provider`, captured by `Season_Episode_builder.py` into `logs/<series-slug>/<series-slug>_providers.log` with `[provider]` prefixes. Providers must not write directly to log files.
+
+   ## Rotten Tomatoes (Scraper)
+- The `rotten_tomatoes.py` script is a web scraper that fetches metadata from Rotten Tomatoes. It must:
+- Build URLs dynamically using the `--series` argument (e.g., `https://www.rottentomatoes.com/search?search=<series>`).
+- Parse search, series, and episode pages to extract series name, season/episode counts, titles, air dates, and overviews.
+- Fetch episode pages for overviews, as they are not available on series or season pages.
+- Identify specials from the search page (e.g., titles containing the series name and a colon).
+- Output JSON matching the schema in `layout.md`, using `null` for missing fields.
+
+   ## trakt.py
 - **Purpose**: Fetches metadata (seasons, episodes, titles, overviews, air dates) from Trakt.tv API for a given series and writes standardized JSON output.
 - **Input**:
   - Series name (string, e.g., "Ax Men") passed via `get_metadata(title, config)`.
