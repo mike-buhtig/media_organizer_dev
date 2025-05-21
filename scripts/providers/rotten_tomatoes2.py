@@ -1,4 +1,4 @@
-# rotten_tomatoes.py v2.2.4
+# rotten_tomatoes.py v2.2.5
 # Fetches metadata from Rotten Tomatoes using requests and BeautifulSoup,
 # prioritizing structured JSON-LD data.
 # Outputs standardized JSON to a temp file for Season_Episode_builder.py.
@@ -7,6 +7,9 @@
 # - pip install requests beautifulsoup4
 #
 # Change Log:
+# [2.2.5] - 2025-05-21: Ensured uniqueness of specials added to season 0 (using a set of titles).
+#                      Implemented 'null_X' episode numbering for season 0 specials to aid builder script.
+#                      Added more specific logging for special overview extraction.
 # [2.2.4] - 2025-05-21: Deduplicated special URLs found on search page.
 #                      Adjusted scraping priority for specials:
 #                      - Title: Prioritize 'photosCarousel' script, then <title>, then JSON-LD.
@@ -80,7 +83,7 @@ def get_metadata(title: str, config: ConfigParser) -> None:
     Fetches Rotten Tomatoes metadata for a TV series, including seasons, episodes,
     and specials (season 0). Prioritizes structured JSON-LD data.
     """
-    provider_logger.info(f"rotten_tomatoes.py v2.2.4 starting for {title}")
+    provider_logger.info(f"rotten_tomatoes.py v2.2.5 starting for {title}")
 
     temp_folder = config["general"]["TEMP_FOLDER"]
     # --- CRITICAL CHANGE: Changed output filename to match builder's expectation for 'rotten_tomatoes2' ---
@@ -341,6 +344,9 @@ def get_metadata(title: str, config: ConfigParser) -> None:
 
     # --- Step 4: Scrape Specials (Season 0) ---
     season_0_episodes = []
+    processed_special_titles = set() # To prevent duplicate specials in season 0
+    special_episode_counter = 1 # For null_X numbering
+
     for special_url in special_urls:
         provider_logger.debug(f"Fetching special page: {special_url}")
         try:
@@ -382,11 +388,13 @@ def get_metadata(title: str, config: ConfigParser) -> None:
                             if special_title:
                                 provider_logger.debug(f"Extracted special title from JSON-LD: '{special_title}'")
 
-                        # Priority for overview: <rt-text data-qa="synopsis-value"> > JSON-LD description
+                        # Priority for overview: <rt-text data-qa="synopsis-value"> (if not empty) > JSON-LD description
+                        overview_from_rt_text = ""
                         overview_elem = special_soup.find("rt-text", {"data-qa": "synopsis-value"})
                         if overview_elem:
-                            special_overview = overview_elem.get_text(strip=True)
-                            if special_overview:
+                            overview_from_rt_text = overview_elem.get_text(strip=True)
+                            if overview_from_rt_text: # Only use if not empty
+                                special_overview = overview_from_rt_text
                                 provider_logger.debug(f"Extracted special overview from <rt-text>: '{special_overview}'")
                         
                         if not special_overview: # Fallback to JSON-LD description if rt-text is empty or not found
@@ -458,16 +466,22 @@ def get_metadata(title: str, config: ConfigParser) -> None:
             special_overview = special_overview or ""
             special_air_date = special_air_date or ""
 
-            if special_title: # Only add if we have a title for the special
+            if special_title and special_title not in processed_special_titles: # Only add if we have a title and it's not a duplicate
+                episode_number_for_special = f"null_{special_episode_counter}"
                 season_0_episodes.append({
-                    "episode_number": None, # No inherent episode number for specials
+                    "episode_number": episode_number_for_special, # Unique 'null_X' numbering for specials
                     "title": special_title,
                     "overview": special_overview,
                     "id": None,
                     "air_date": special_air_date
                 })
+                processed_special_titles.add(special_title) # Add title to set to track processed specials
+                special_episode_counter += 1
             else:
-                provider_logger.warning(f"Could not find title for special at {special_url}, skipping this special.")
+                if special_title:
+                    provider_logger.info(f"Skipping duplicate special: '{special_title}' at {special_url}")
+                else:
+                    provider_logger.warning(f"Could not find title for special at {special_url}, skipping this special.")
 
         except requests.exceptions.RequestException as e:
             provider_logger.error(f"Error fetching special page {special_url}: {e}")
