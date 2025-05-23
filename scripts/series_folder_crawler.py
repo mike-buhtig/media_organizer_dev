@@ -1,5 +1,5 @@
-# series_folder_crawler_v3.3.15.py
-# Version 3.3.15
+# series_folder_crawler_v3.3.17.py
+# Version 3.3.17
 #
 # Purpose:
 # Scans a designated series folder for recorded media files (.ts) and their
@@ -19,6 +19,17 @@
 #   using keys like 'passX_threshold_Series_Name' (casing-sensitive for Series_Name).
 #
 # Change Log:
+# [3.3.17] - 2025-05-23
+# - Re-introduced minimal, unbuffered `sys.stdout.write` statements at critical
+#   early execution points to diagnose silent failures. These are temporary
+#   and will be removed once the root cause is found.
+# - Enhanced `setup_logger` to guarantee console logging fallback if file
+#   handler initialization fails.
+# - Updated versioning.
+# [3.3.16] - 2025-05-23
+# - Removed explicit `print("DEBUG: ...")` statements that were added for debugging.
+#   The script now relies solely on the `logging` module for output.
+# - Updated versioning.
 # [3.3.15] - 2025-05-23
 # - Enhanced `normalize` function to consistently handle " and " vs. " & " variations.
 #   It now replaces " and " with " & " (or similar logic) before other punctuation removal,
@@ -112,21 +123,27 @@ def setup_logger(series_slug: str, log_base_path: str):
     Sets up the file handler for the logger, directing logs to a series-specific file.
     Includes a fallback to console logging if file logging cannot be initialized.
     """
-    print(f"DEBUG: Entering setup_logger for {series_slug} at {log_base_path}")
+    sys.stdout.write(f"DEBUG_EARLY: Entering setup_logger for {series_slug} at {log_base_path}\n")
+    sys.stdout.flush()
+    
     log_dir = os.path.join(log_base_path, series_slug)
     
     try:
         os.makedirs(log_dir, exist_ok=True)
-        print(f"DEBUG: Log directory ensured: {log_dir}")
+        sys.stdout.write(f"DEBUG_EARLY: Log directory ensured: {log_dir}\n")
+        sys.stdout.flush()
     except Exception as e:
-        print(f"ERROR: Could not create log directory {log_dir}: {e}", file=sys.stderr)
+        sys.stderr.write(f"ERROR: Could not create log directory {log_dir}: {e}\n")
+        sys.stderr.flush()
+        # Fallback to console handler if directory creation fails
         console_handler = logging.StreamHandler(sys.stdout)
         formatter = logging.Formatter("[%(asctime)s] [%(levelname)s] %(message)s")
         console_handler.setFormatter(formatter)
         logger.addHandler(console_handler)
         logger.error(f"Failed to create log directory: {e}. Logging to console only.")
-        return
+        return # Exit early from setup_logger if directory creation failed
 
+    # Clear existing handlers to prevent duplicate log entries on re-runs
     if logger.handlers:
         for handler in logger.handlers:
             logger.removeHandler(handler)
@@ -138,10 +155,13 @@ def setup_logger(series_slug: str, log_base_path: str):
         formatter = logging.Formatter("[%(asctime)s] [%(levelname)s] %(message)s")
         file_handler.setFormatter(formatter)
         logger.addHandler(file_handler)
-        print(f"DEBUG: File handler added for {log_file_path}")
-        logger.info(f"series_folder_crawler_v3.3.15 starting for {SERIES_NAME}")
+        sys.stdout.write(f"DEBUG_EARLY: File handler added for {log_file_path}\n")
+        sys.stdout.flush()
+        logger.info(f"series_folder_crawler_v3.3.17 starting for {SERIES_NAME}")
     except Exception as e:
-        print(f"ERROR: Failed to set up file logger at {log_file_path}: {e}", file=sys.stderr)
+        sys.stderr.write(f"ERROR: Failed to set up file logger at {log_file_path}: {e}\n")
+        sys.stderr.flush()
+        # Fallback to console logging if file logging fails
         console_handler = logging.StreamHandler(sys.stdout)
         console_handler.setFormatter(formatter)
         logger.addHandler(console_handler)
@@ -164,16 +184,9 @@ def normalize(s: str) -> str:
     if not s:
         return ""
     
-    # Step 1: Lowercase
     s = s.lower()
-    
-    # Step 2: Replace " and " with " & " for consistent matching
     s = s.replace(" and ", " & ")
-    
-    # Step 3: Remove all other punctuation and non-alphanumeric characters (keep spaces)
-    s = re.sub(r"[^\w\s&]", "", s) # Keep word characters, whitespace, and the '&'
-    
-    # Step 4 & 5: Strip whitespace and apply Unicode normalization
+    s = re.sub(r"[^\w\s&]", "", s)
     return unicodedata.normalize("NFC", s).strip()
 
 # ------------------
@@ -195,6 +208,7 @@ def load_paths(series_name: str):
         config_path = os.path.join("config", "paths.txt")
         if not os.path.exists(config_path):
             sys.stderr.write(f"ERROR: Configuration file not found at: {config_path}\n")
+            sys.stderr.flush()
             raise FileNotFoundError(f"paths.txt not found at {config_path}")
 
     config_parser = ConfigParser()
@@ -287,12 +301,10 @@ def find_related_ts_files(xml_basenames: set) -> dict:
             continue
         
         ts_base_name = os.path.splitext(file)[0] 
-        # Remove trailing '-0' or '-0-0' from the .ts basename to match the XML's logical basename
         logical_base_name = re.sub(r"(-0)+$", "", ts_base_name) 
 
         full_path = os.path.join(ROOT_FOLDER, file)
         
-        # Check if the logical_base_name exists in the set of XML basenames.
         if logical_base_name in xml_basenames:
             groups[logical_base_name].append({
                 "path": full_path.replace("\\", "/"),
@@ -478,21 +490,21 @@ def build_episode_groups() -> dict:
     Orchestrates the crawling, metadata loading, and matching process.
     Produces the final structured JSON output mapping local files to matched episodes.
     """
-    print("DEBUG: Entering build_episode_groups.")
+    logger.debug("Entering build_episode_groups.")
     epg_data = scan_xml_metadata()
-    print(f"DEBUG: scan_xml_metadata completed. Found {len(epg_data)} EPG groups.")
+    logger.debug(f"scan_xml_metadata completed. Found {len(epg_data)} EPG groups.")
     
     provider_meta = load_series_metadata()
-    print(f"DEBUG: load_series_metadata completed. Contains {len(provider_meta.get('seasons', []))} seasons.")
+    logger.debug(f"load_series_metadata completed. Contains {len(provider_meta.get('seasons', []))} seasons.")
     
     match_pool = build_match_pool(provider_meta)
-    print(f"DEBUG: build_match_pool completed. Pool size: {len(match_pool)}.")
+    logger.debug(f"build_match_pool completed. Pool size: {len(match_pool)}.")
 
     results = {"series_name": SERIES_NAME, "seasons": []}
     
     all_xml_basenames = set(os.path.splitext(f)[0] for group_list in epg_data.values() for f in group_list)
     ts_groups = find_related_ts_files(all_xml_basenames)
-    print(f"DEBUG: find_related_ts_files completed. Found {len(ts_groups)} .ts groups.")
+    logger.debug(f"find_related_ts_files completed. Found {len(ts_groups)} .ts groups.")
 
     unmatched_epg_pairs = [(subtitle, desc, xml_list) for (subtitle, desc), xml_list in epg_data.items()]
     
@@ -559,7 +571,7 @@ def build_episode_groups() -> dict:
             logger.info("All local EPG pairs matched. Ending matching process early.")
             break
 
-    print("DEBUG: Finalizing results.")
+    logger.debug("Finalizing results.")
     for (season_num, episode_num), matched_groups in temp_matched_episodes.items():
         target_season = next((s for s in results["seasons"] if s["season_number"] == season_num), None)
         if not target_season:
@@ -622,35 +634,38 @@ def build_episode_groups() -> dict:
         results["seasons"].sort(key=lambda x: x["season_number"] if isinstance(x["season_number"], int) else float('inf'))
 
     logger.info(f"Matching process complete. Total seasons in output: {len(results['seasons'])}")
-    print("DEBUG: build_episode_groups function finished.")
+    logger.debug("build_episode_groups function finished.")
     return results
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:
-        print("Usage: python scripts/series_folder_crawler.py \"Series Name\"")
+        sys.stdout.write("Usage: python scripts/series_folder_crawler.py \"Series Name\"\n")
+        sys.stdout.flush()
         sys.exit(1)
 
     SERIES_NAME_ARG = sys.argv[1]
     
-    print(f"DEBUG: Script execution started for '{SERIES_NAME_ARG}'")
+    sys.stdout.write(f"DEBUG_EARLY: Script execution started for '{SERIES_NAME_ARG}'\n")
+    sys.stdout.flush()
 
     try:
         load_paths(SERIES_NAME_ARG)
-        print(f"DEBUG: load_paths completed. ROOT_FOLDER: {ROOT_FOLDER}")
+        logger.debug(f"load_paths completed. ROOT_FOLDER: {ROOT_FOLDER}")
         
         grouped = build_episode_groups()
-        print("DEBUG: build_episode_groups call completed.")
+        logger.debug("build_episode_groups call completed.")
         
         output_dir = os.path.dirname(OUTPUT_JSON)
         os.makedirs(output_dir, exist_ok=True)
-        print(f"DEBUG: Output directory ensured: {output_dir}")
+        logger.debug(f"Output directory ensured: {output_dir}")
 
         with open(OUTPUT_JSON, "w", encoding="utf-8") as f:
             json.dump(grouped, f, indent=2)
         logger.info(f"Finished. Output saved to {OUTPUT_JSON}")
-        print(f"DEBUG: Output written to {OUTPUT_JSON}")
+        logger.debug(f"Output written to {OUTPUT_JSON}")
     except Exception as e:
         logger.exception(f"An unhandled error occurred during script execution for '{SERIES_NAME_ARG}': {e}")
-        print(f"ERROR: An unhandled error occurred: {e}", file=sys.stderr)
+        sys.stderr.write(f"ERROR: An unhandled error occurred: {e}\n")
+        sys.stderr.flush()
         sys.exit(1)
 
