@@ -13,7 +13,7 @@ Read All Documents Before Changes: All governing documents (coding_conventions.m
 Report Conflicts: If a conflict is found between documents, within a document, or in script logic, no changes may be made. The conflict must be reported to the project engineer for resolution.
 
 Scripts and Their Roles
-1. Season_Episode_builder.py
+1. ### Season_Episode_builder.py
 
 Purpose: Fetch TV series metadata from providers and generate a consolidated JSON file.
 Inputs:
