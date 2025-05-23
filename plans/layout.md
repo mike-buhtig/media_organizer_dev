@@ -71,6 +71,62 @@ tmp/: Temporary JSON files from providers.
 tmp/<provider>.json (e.g., tmp/tvmaze.json).
 
 
+## entire repository layout graphic:
+
+.
+├── config/
+│   └── paths.txt             # Configuration for paths, thresholds, etc.
+├── data/
+│   └── <series_slug>/        # Example: ax_men
+│       ├── Ax Men.json         # Output from Season_Episode_builder.py
+│       └── Ax_Men_Processed.json # Output from series_folder_crawler.py
+├── docs/
+│   ├── architecture.md       # (If it exists) Project architecture overview
+│   ├── contributing.md       # (If it exists) Contribution guidelines
+│   └── ...                   # Other documentation files
+├── logs/
+│   └── <series_slug>/        # Example: ax_men
+│       └── series_folder_crawler_ax_men.log # Log file for the crawler
+├── media_organizer_dev/      # (Potentially if the root is one level higher)
+│   ├── config/
+│   │   └── paths.txt
+│   ├── data/
+│   │   └── <series_slug>/
+│   │       ├── <series_name>.json
+│   │       └── <series_name>_Processed.json
+│   ├── docs/
+│   │   ├── architecture.md
+│   │   ├── contributing.md
+│   │   └── ...
+│   ├── logs/
+│   │   └── <series_slug>/
+│   │       └── series_folder_crawler_<series_slug>.log
+│   ├── plans/
+│   │   ├── coding_conventions.md
+│   │   ├── layout.md
+│   │   ├── requirements.md
+│   │   ├── script_relationships.md
+│   │   └── to_do.md
+│   ├── scripts/
+│   │   ├── file_organizer.py
+│   │   ├── rename_files.py       # (If it exists)
+│   │   ├── Season_Episode_builder.py
+│   │   └── series_folder_crawler.py
+│   └── ...                   # Other project files
+├── plans/
+│   ├── coding_conventions.md
+│   ├── layout.md
+│   ├── requirements.md
+│   ├── script_relationships.md
+│   └── to_do.md
+├── scripts/
+│   ├── file_organizer.py
+│   ├── rename_files.py       # (If it exists)
+│   ├── Season_Episode_builder.py
+│   └── series_folder_crawler.py
+└── ...                       # Other top-level files (e.g., README.md)
+
+
 
 Notes
 
