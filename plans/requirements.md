@@ -381,12 +381,19 @@ All scripts (Season_Episode_builder.py, file_organizer.py, series_folder_crawler
 
 ### `[network_config]` Section
 
-This section defines network-related configurations.
+This section defines network-related configurations for servers that host media files accessed by Kodi.
 
-* `kodi_ip`: The IP address of the Kodi device.
-* `<hostname>_ip`: The IP address of other network servers (e.g., `htpc_ip`, `win10box3_ip_1`). You can define multiple IP addresses for the same host (e.g., `win10box3_ip_1`, `win10box3_ip_2`).
-* `<hostname>_shares`: A comma-separated list of share names accessible on the corresponding IP address (e.g., `kodi_shares = NextPVRRecordings, Movies`). The hostname should match the IP address key (e.g., `kodi` for `kodi_ip`). For hosts with multiple IP addresses, append a suffix to the `shares` key to match the IP key (e.g., `win10box3_shares_1`).
-* `default_kodi_share` (optional): The default share name to use for the Kodi IP if a specific share is not provided in other contexts.
+* `<servername>_ip`: The IP address of a network server (e.g., `htpc_ip`, `win10box3_ip`). You can choose a descriptive `servername` prefix.
+* `<servername>_shares`: A comma-separated list of share names on the corresponding server that Kodi might access (e.g., `htpc_shares = Recordings, Movies-HTPC, TV-Series`). The `servername` prefix should match the IP address key.
 
+**Example:**
+
+```ini
+[network_config]
+htpc_ip = 192.168.0.254
+htpc_shares = Recordings, Movies-HTPC, TV-Series
+
+win10box3_ip = 192.168.0.123
+win10box3_shares = Media, KodiShare
   
 	- **Verification Rule**: All assumptions about configuration files (e.g., `paths.txt`), data availability (e.g., API responses), or repository contents (e.g., `coding_conventions.md`) must be verified against source files (`paths.example.txt`, API documentation, repository) before coding. No changes may be based on unverified assumptions.
