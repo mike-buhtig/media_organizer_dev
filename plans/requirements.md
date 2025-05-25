@@ -370,4 +370,16 @@ All scripts (Season_Episode_builder.py, file_organizer.py, series_folder_crawler
   - Must log to `Season_Episode_builder.provider`, not custom files (e.g., `logs/builder.log`).
   - Legacy logging (e.g., `log_message`) must be updated to use `provider_logger`.
   
+## kodi_watched_extractor.py
+
+  - **Software Dependencies** 
+	- ADB (Android Debug Bridge) installed and in system PATH."
+  - **Python Libraries
+	- Standard Python library sqlite3.
+  - **Configuration (config/paths.txt)**
+    - [kodi] section (KODI_IP) Include the kodi ip address, and/or path to kodi for the sake of pulling the kodi database.
+	- [network_config] section (kodi_ip, htpc_ip, win10box3_ip_1, win10box3_ip_2, kodi_share_name) are all ip addresses and associated shares, from which kodi may pull programming, and from which we may find the shares for libraries if not on the local machine.
+	
+  
+  
 	- **Verification Rule**: All assumptions about configuration files (e.g., `paths.txt`), data availability (e.g., API responses), or repository contents (e.g., `coding_conventions.md`) must be verified against source files (`paths.example.txt`, API documentation, repository) before coding. No changes may be based on unverified assumptions.
