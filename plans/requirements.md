@@ -21,7 +21,7 @@ Repository Structure
 The Media Organizer project uses the following folder structure to organize scripts, data, logs, and configurations:
 
 config/: Configuration files.
-paths.txt: Active configuration with API keys and settings.
+paths.txt: Active configuration with API keys and settings, as well as paths to series folders, infrmation pertinent to kodi, network shares with ip addresses, and paths to the library where TVseries, and Movie files are to be stored
 paths.example.txt: Template for paths.txt without sensitive data.
 
 
@@ -340,6 +340,8 @@ All scripts (Season_Episode_builder.py, file_organizer.py, series_folder_crawler
 - **Dependencies**:
   - Python libraries: `requests` (pip install requests).
   - Trakt API client ID (valid key in `config['trakt']['TRAKT_CLIENT_ID']`).
+  - ADB needs to be installed and accessible in the system's PATH.
+  -Python sqlite3 library
 - **Behavior**:
   - Searches Trakt API for series by title, retrieves slug.
   - Fetches series summary and seasons with extended episode data.

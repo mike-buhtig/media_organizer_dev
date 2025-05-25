@@ -138,3 +138,15 @@ Providers log through Season_Episode_builder.py’s logging mechanism.
 These requirements apply only to Season_Episode_builder.py and its provider scripts (tvmaze.py, tmdb.py, trakt.py, rotten_tomatoes.py).
 Note: Logging for downstream scripts (file_organizer.py, series_folder_crawler.py, kodi_db_exporter.py) will be defined in future updates. This note will be removed when those directives are complete.
 
+6. ### kodi_watched_extractor.py
+
+Describe its relationship with series_folder_crawler.py (takes its output as input).
+Describe its relationship with file_organizer.py (provides the _kodi_watched.json file which the organizer will optionally use).
+Mention its dependency on ADB and the Kodi database.
+3. requirements.md:
+
+Update this to include:
+
+Software Dependencies: ADB needs to be installed and accessible in the system's PATH. Mention the Python sqlite3 library (although it's standard, it's good to be explicit).
+Configuration: Detail the [kodi] section in paths.txt (KODI_IP). Add a description of the new [network_shares] section (for future use in mapping local/network paths).
+

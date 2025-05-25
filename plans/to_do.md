@@ -39,3 +39,11 @@ This document tracks planned improvements and tasks for the media_organizer_dev 
 
 ## Future Enhancements: 
 - Extract MPA rating (e.g., “TV-PG”) and genre (e.g., “Reality/Documentary/Adventure”) from the series page card if the project succeeds.
+- Create a way to update trakt, and to gather trakt data to mark things watched that trakt has record of.
+- Implement ADB connection and command execution in kodi_watched_extractor.py.
+- Implement querying the Kodi database (MyVideos131.db) for watched status and file paths using the constructed SMB path.
+- Implement reading the <series_slug>_Processed.json file.
+- Implement the logic to match KodiFilePath with the local_path from _processed.json (handling path variations and potential network share mappings).
+- Implement the creation of the <series_slug>_kodi_watched.json file.
+- (Future Research): Investigate matching watched status for addon content by analyzing filenames in the files table under the addon's idPath.
+- (Future Enhancement): Implement the use of the [network_shares] section in paths.txt for more flexible path mapping.
