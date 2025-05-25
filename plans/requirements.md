@@ -378,8 +378,15 @@ All scripts (Season_Episode_builder.py, file_organizer.py, series_folder_crawler
 	- Standard Python library sqlite3.
   - **Configuration (config/paths.txt)**
     - [kodi] section (KODI_IP) Include the kodi ip address, and/or path to kodi for the sake of pulling the kodi database.
-	- [network_config] section (kodi_ip, htpc_ip, win10box3_ip_1, win10box3_ip_2, kodi_share_name) are all ip addresses and associated shares, from which kodi may pull programming, and from which we may find the shares for libraries if not on the local machine.
-	
-  
+
+### `[network_config]` Section
+
+This section defines network-related configurations.
+
+* `kodi_ip`: The IP address of the Kodi device.
+* `<hostname>_ip`: The IP address of other network servers (e.g., `htpc_ip`, `win10box3_ip_1`). You can define multiple IP addresses for the same host (e.g., `win10box3_ip_1`, `win10box3_ip_2`).
+* `<hostname>_shares`: A comma-separated list of share names accessible on the corresponding IP address (e.g., `kodi_shares = NextPVRRecordings, Movies`). The hostname should match the IP address key (e.g., `kodi` for `kodi_ip`). For hosts with multiple IP addresses, append a suffix to the `shares` key to match the IP key (e.g., `win10box3_shares_1`).
+* `default_kodi_share` (optional): The default share name to use for the Kodi IP if a specific share is not provided in other contexts.
+
   
 	- **Verification Rule**: All assumptions about configuration files (e.g., `paths.txt`), data availability (e.g., API responses), or repository contents (e.g., `coding_conventions.md`) must be verified against source files (`paths.example.txt`, API documentation, repository) before coding. No changes may be based on unverified assumptions.
