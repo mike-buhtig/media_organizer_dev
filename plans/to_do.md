@@ -24,7 +24,7 @@ This document tracks planned improvements and tasks for the media_organizer_dev 
 3. **Fix Trakt JSON Format in Season_Episode_builder.py Merge**
    - **Description**: Adjust `trakt.py` JSON output or `Season_Episode_builder.py` merge logic to include Trakt data in `data/<series_slug>/<series_name>.json` (currently `"trakt": null` for most fields).
    - **Priority**: High
-   - **Status**: Not started
+   - **Status**: completed
    - **Notes**:
      - Mismatch between `trakt.py`’s JSON (`"series_name"`, list-based `"seasons"`) and builder’s expected format (nested `titles`, `overviews`, `ids`).
      - Requires minimal changes to `trakt.py` to preserve logic.
@@ -40,9 +40,10 @@ This document tracks planned improvements and tasks for the media_organizer_dev 
     - Include relevant episode metadata (title, season, episode number) from `_processed.json` in the `_kodi_watched.json` output.
     - Save the episode-level watched status and metadata to `data/<series_slug>_kodi_watched.json`.
 
-5. ** Fix rotten_tomatoes2.py scraper **
+5. ** Fix rotten_tomatoes2.py scraper, and rotten_tomatoes.py scraper **
    - **Notes**
      - the script fails to find "The A-Team" series, probably because if mishandling of the hyphen in normalization when creating the <series_slug>
+	 - this mishandling is verified because the rottentomatoes.com web site normalizes the hyphen and returns this for the series page: https://www.rottentomatoes.com/tv/the_a_team
 ## Governance
 - All tasks must comply with `requirements.md`:
   - Use `logging.getLogger('Season_Episode_builder')` for logging.
