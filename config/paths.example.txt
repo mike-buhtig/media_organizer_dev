@@ -21,6 +21,22 @@ USE_NEXTPVR=true
 OPERATION_MODE=move
 CREATE_NFO=true
 
+[network_config]
+# format for shares:
+# servername_ip = <ip address>
+# servername_shares = sharename1, sharename2, sharename3
+kodi_ip = 192.168.0.127
+kodi_shares = 
+
+htpc_ip = 192.168.0.254
+htpc_shares = Recordings, Movies-HTPC, TV-Series, Recoveredj-movies, Youtube, Kodi repository clones
+
+win10box3_ip = 192.168.0.123
+win10box3_shares = Media, KodiShare, epg, Pictures, Music-1
+
+Dell-laptop_ip = 192.168.0.137
+Dell-Laptop_shares = Cades Cove 2004, DellLaptopShare, nextpvr, NextPVRRecordings, Pics from Margarets visit, TV-Laptop
+
 [series]
 # Add series as series_name_X = <name>, series_path_X = <path>
 # Example: series_name_8 = New Series, series_path_8 = D:/Recordings/New Series
