@@ -41,7 +41,7 @@ paths.example.txt: Template for paths.txt without sensitive data.
 
 data/: Output JSON files for series metadata.
 data/<series_slug>/<series_name>.json (e.g., data/ax_men/Ax Men.json).
-data/<series_slug>_kodi_watched.json: Describe its structure (dictionary mapping original local file paths to a dictionary containing watched (boolean) and last_played (string) values).
+data/<series_slug>_kodi_watched.json: Describe its structure (dictionary mapping original local file paths to a dictionary containing watched (boolean) and last_played (string) values).  The keys will be episode identifiers and the values will include watched status, last_played time (perhaps the latest), and potentially other relevant episode metadata.
 
 
 logs/: Log files for script and provider actions.
@@ -65,6 +65,26 @@ kodi_db_exporter.py: Kodi database export.
 kodi_watched_extractor.py extracts watched titles from the kodi database and saves them in 
 providers/:
 tvmaze.py, tmdb.py, trakt.py, rotten_tomatoes.py: Provider-specific metadata fetching.
+
+
+
+### `data/<series_slug>_kodi_watched.json`
+
+This file contains a JSON object that maps episode identifiers (e.g., "s01e03") to their watched status and related metadata extracted from the Kodi database. The structure is as follows:
+
+```json
+{
+  "s<season_number>e<episode_number>": {
+    "watched": true|false,
+    "last_played": "YYYY-MM-DD HH:MM:SS"|null,
+    "title": "Episode Title",
+    "season": <integer>,
+    "episode": <integer>,
+    // Potentially other metadata from _processed.json
+    "triggering_kodi_path": "smb://..." // Optional: The Kodi path that indicated watched status
+  },
+  // ... more episodes ...
+}
 
 
 

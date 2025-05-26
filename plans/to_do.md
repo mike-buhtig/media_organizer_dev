@@ -29,6 +29,20 @@ This document tracks planned improvements and tasks for the media_organizer_dev 
      - Mismatch between `trakt.py`’s JSON (`"series_name"`, list-based `"seasons"`) and builder’s expected format (nested `titles`, `overviews`, `ids`).
      - Requires minimal changes to `trakt.py` to preserve logic.
 
+4. **kodi_watched_extractor.py:**
+    - Create the `tmp/kodi_db` folder if it doesn't exist.
+    - Check for and delete existing Kodi database files in `tmp/kodi_db` before pulling.
+    - Pull the Kodi database file(s) to the `tmp/kodi_db` folder.
+    - Modify the database query to retrieve watched status and file paths.
+    - Load the `_processed.json` file to map file paths to episode identifiers and metadata.
+    - Implement logic to mark an episode as watched if any of its associated file paths in `_processed.json` are marked as watched in Kodi.
+    - Include the latest `lastPlayed` time for a watched episode.
+    - Include relevant episode metadata (title, season, episode number) from `_processed.json` in the `_kodi_watched.json` output.
+    - Save the episode-level watched status and metadata to `data/<series_slug>_kodi_watched.json`.
+
+5. ** Fix rotten_tomatoes2.py scraper **
+   - **Notes**
+     - the script fails to find "The A-Team" series, probably because if mishandling of the hyphen in normalization when creating the <series_slug>
 ## Governance
 - All tasks must comply with `requirements.md`:
   - Use `logging.getLogger('Season_Episode_builder')` for logging.
