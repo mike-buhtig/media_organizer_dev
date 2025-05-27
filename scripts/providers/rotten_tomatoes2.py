@@ -45,14 +45,23 @@ from bs4 import BeautifulSoup
 from urllib.parse import quote
 import logging
 
+# Create a basic logger
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
+handler = logging.StreamHandler()
+formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+handler.setFormatter(formatter)
+logger.addHandler(handler)
+
 # Get the provider logger instance from Season_Episode_builder.py
 provider_logger = logging.getLogger("Season_Episode_builder.provider")
 # Temporarily set to DEBUG for detailed debugging
 provider_logger.setLevel(logging.DEBUG)
 
-def normalize_series_name(title: str) -> str:
+def normalize_series_name(title):
     """Convert series name to Rotten Tomatoes URL format (e.g., 'Ax Men' -> 'ax_men')"""
-    return re.sub(r'\s+', '_', title.lower().strip())
+    normalized_title = title.lower().strip().replace('-', '_')
+    return re.sub(r'\s+', '_', normalized_title)
 
 def parse_air_date(raw_date: str) -> str:
     """
@@ -139,7 +148,7 @@ def get_metadata(title: str, config: ConfigParser) -> None:
                 # Check if it's the main series or a special
                 # Main series URL usually ends with just the slug (e.g., /tv/ax_men)
                 # Specials have additional parts (e.g., /tv/ax_men_logged_and_loaded)
-                if relative_href == f"/tv/{series_slug}":
+                if relative_href == f"/tv/{series_slug}" or relative_href == f"/tv/{normalize_series_name(title).replace('_', '-')}":
                     main_series_url = full_url
                     provider_logger.info(f"Identified main series URL: {main_series_url}")
                 elif relative_href.startswith(f"/tv/{series_slug}_"):
@@ -496,6 +505,18 @@ def get_metadata(title: str, config: ConfigParser) -> None:
         })
 
     # --- Step 5: Write Output JSON ---
+    logger.debug("--- Inspecting output_data before saving ---")
+    logger.debug(f"Series Name: {output_data.get('series_name')}")
+    logger.debug(f"Number of Seasons: {len(output_data.get('seasons', []) if output_data else 0)}")
+    if output_data and output_data.get('seasons'):
+        for season in output_data['seasons']:
+            logger.debug(f"  Season {season.get('season_number')}: {len(season.get('episodes', []) if season else 0)} episodes")
+            if season and season.get('episodes') and season['episodes']:
+                logger.debug(f"    First episode title (Season {season.get('season_number')}): {season['episodes'][0].get('title')}")
+    logger.debug(f"Genres: {output_data.get('genres') if output_data else None}")
+    logger.debug(f"MPA Rating: {output_data.get('mpa_rating') if output_data else None}")
+    logger.debug(f"Temp File Path: {temp_file}")
+    logger.debug("--- End of output_data inspection ---")   
     os.makedirs(temp_folder, exist_ok=True)
     try:
         with open(temp_file, "w", encoding="utf-8") as f:

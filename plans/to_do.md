@@ -44,6 +44,15 @@ This document tracks planned improvements and tasks for the media_organizer_dev 
    - **Notes**
      - the script fails to find "The A-Team" series, probably because if mishandling of the hyphen in normalization when creating the <series_slug>
 	 - this mishandling is verified because the rottentomatoes.com web site normalizes the hyphen and returns this for the series page: https://www.rottentomatoes.com/tv/the_a_team
+
+6. ** Fix Season_Episode_builder.py so it handles multiple episodes of a season per provider **
+   - **Descriptions**: add logic in case a provider sends multiple versions of an episode to the tmp/provider_name.json.
+   - **Priority**: :Lowa
+   - **Status**: Not started.
+   - **Notes**: 
+	 - rottentomatoes.com has multiple listings for some episodes of The A-Team, and some episodes are missing entirely.
+	 - the script already handles missing episodes, but it has no mechanism to add multiple versions of an episode of the same season, which may have different metadata, like title/overview, etc
+
 ## Governance
 - All tasks must comply with `requirements.md`:
   - Use `logging.getLogger('Season_Episode_builder')` for logging.

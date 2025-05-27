@@ -41,7 +41,8 @@ import logging # Import logging to use the passed logger
 
 def normalize_series_name(title: str) -> str:
     """Convert series name to Rotten Tomatoes URL format (e.g., 'Ax Men' -> 'ax_men')"""
-    return re.sub(r'\s+', '_', title.lower().strip())
+    normalized_title = title.lower().strip().replace('-', '_')
+    return re.sub(r'\s+', '_', normalized_title)
 
 def parse_air_date(raw_date: str) -> str:
     """
@@ -493,4 +494,3 @@ def get_metadata(title: str, config: ConfigParser) -> None:
         provider_logger.info(f"Successfully saved metadata to {temp_file}")
     except Exception as e:
         provider_logger.error(f"Error writing metadata to {temp_file}: {e}")
-
