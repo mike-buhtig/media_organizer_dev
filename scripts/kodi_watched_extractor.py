@@ -123,42 +123,49 @@ def load_processed_data(processed_file_path):
     except FileNotFoundError:
         logging.error(f"Error: {processed_file_path} not found.")
         return {}
-    except json.JSONDecodeError:
-        logging.error(f"Error: Could not decode JSON from {processed_file_path}.")
+    except json.JSONDecodeError as e:
+        logging.error(f"Error: Could not decode JSON from {processed_file_path}: {e}")
         return {}
 
 def map_watched_status_to_episodes(kodi_watched_data, processed_data, local_series_path, kodi_network_base_path):
     """Maps watched status from Kodi paths to episode identifiers and includes metadata."""
     episode_watched_status = {}
-    for episode_id, episode_info in processed_data.items():
-        episode_watched = False
-        latest_played = None
-        triggering_kodi_path = None
-        for file_path in episode_info.get('file_paths', []):
-            relative_path = os.path.relpath(file_path, local_series_path).replace('\\', '/')
-            potential_kodi_path = os.path.join(kodi_network_base_path, relative_path).replace('\\', '/')
+    if 'seasons' in processed_data:
+        for season in processed_data['seasons']:
+            if 'episodes' in season:
+                for episode_data in season['episodes']:
+                    # Assuming a unique identifier can be created from season and episode number
+                    episode_id = f"S{season.get('season_number', '0'):02d}E{episode_data.get('episode_number', '0'):02d}"
+                    episode_watched = False
+                    latest_played = None
+                    triggering_kodi_path = None
 
-            for kodi_path, watched_info in kodi_watched_data.items():
-                if potential_kodi_path.lower() == kodi_path.lower() and watched_info['watched']:
-                    episode_watched = True
-                    if watched_info['last_played']:
-                        # Keep track of the latest played time
-                        if latest_played is None or watched_info['last_played'] > latest_played:
-                            latest_played = watched_info['last_played']
-                            triggering_kodi_path = kodi_path
-                    break # Found a match for this local file
-            if episode_watched:
-                break # If the episode is watched due to one file, no need to check others
+                    for file_info in episode_data.get('files', []):
+                        file_path = file_info.get('path')
+                        if file_path:
+                            relative_path = os.path.relpath(file_path, local_series_path).replace('\\', '/')
+                            potential_kodi_path = os.path.join(kodi_network_base_path, relative_path).replace('\\', '/')
 
-        if episode_id:
-            episode_watched_status[episode_id] = {
-                "watched": episode_watched,
-                "last_played": latest_played,
-                "title": episode_info.get('title'),
-                "season": episode_info.get('season'),
-                "episode": episode_info.get('episode'),
-                "triggering_kodi_path": triggering_kodi_path
-            }
+                            for kodi_path, watched_info in kodi_watched_data.items():
+                                if potential_kodi_path.lower() == kodi_path.lower() and watched_info['watched']:
+                                    episode_watched = True
+                                    if watched_info['last_played']:
+                                        if latest_played is None or watched_info['last_played'] > latest_played:
+                                            latest_played = watched_info['last_played']
+                                            triggering_kodi_path = kodi_path
+                                    break  # Found a match for this local file
+                        if episode_watched:
+                            break  # If the episode is watched due to one file, no need to check others
+
+                    if episode_id:
+                        episode_watched_status[episode_id] = {
+                            "watched": episode_watched,
+                            "last_played": latest_played,
+                            "title": episode_data.get('titles', [None])[0],  # Assuming first title is primary
+                            "season": season.get('season_number'),
+                            "episode": episode_data.get('episode_number'),
+                            "triggering_kodi_path": triggering_kodi_path
+                        }
     return episode_watched_status
 
 def save_kodi_watched_data(output_file_path, watched_data):
@@ -228,11 +235,18 @@ def main():
             watched_data = query_kodi_watched_status(local_db_file_path, kodi_network_base_path)
             all_watched_data.update(watched_data)
 
-    processed_file = f'data/{series_slug}_processed.json'
+    processed_file = f'data/{series_slug}/{series_name.replace(" ", "_")}_Processed.json'
     processed_data = load_processed_data(processed_file)
+    
+    print(f"DEBUG: Type of processed_data: {type(processed_data)}")
+    print(f"DEBUG: Content of processed_data (first 500 chars): {str(processed_data)[:500]}")
+
+    
     if processed_data:
         episode_watched_status = map_watched_status_to_episodes(all_watched_data, processed_data, series_path, kodi_network_base_path)
-        save_kodi_watched_data(f'data/{series_slug}_kodi_watched.json', episode_watched_status)
+        output_watched_file = os.path.join('data', series_slug, f'{series_slug}_kodi_watched.json')
+        os.makedirs(os.path.dirname(output_watched_file), exist_ok=True)
+        save_kodi_watched_data(output_watched_file, episode_watched_status)
     else:
         logging.warning(f"No processed data found for {series_name}.")
 

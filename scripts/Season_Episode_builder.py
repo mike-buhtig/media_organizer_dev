@@ -420,6 +420,7 @@ def main():
 
     # Initialize logging
     series_slug = args.series.lower().replace(" ", "_").replace("'", "") # Clean slug for log paths
+    series_slug = series_slug.replace('-', '_')
     builder_logger, provider_logger = setup_logging(series_slug, log_path)
 
     # Load enabled providers

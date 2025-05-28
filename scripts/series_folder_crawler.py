@@ -201,7 +201,7 @@ def load_paths(series_name: str):
            PASS4_THRESHOLD, PASS2_THRESHOLD, PASS3_THRESHOLD, SERIES_NAME, SERIES_FOLDER_SLUG
 
     SERIES_NAME = series_name
-    SERIES_FOLDER_SLUG = SERIES_NAME.lower().replace(" ", "_").replace("'", "")
+    SERIES_FOLDER_SLUG = SERIES_NAME.lower().replace(" ", "_").replace("'", "").replace('-', '_')
 
     config_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "config", "paths.txt")
     if not os.path.exists(config_path):
