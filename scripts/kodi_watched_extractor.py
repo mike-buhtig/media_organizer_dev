@@ -26,6 +26,7 @@ import os
 from configparser import ConfigParser
 import argparse
 import logging
+from datetime import datetime
 
 # Script version
 __version__ = "0.1.0"
@@ -127,52 +128,87 @@ def load_processed_data(processed_file_path):
         logging.error(f"Error: Could not decode JSON from {processed_file_path}: {e}")
         return {}
 
-def map_watched_status_to_episodes(kodi_watched_data, processed_data, local_series_path, kodi_network_base_path):
-    """Maps watched status from Kodi paths to episode identifiers and includes metadata."""
-    episode_watched_status = {}
-    if 'seasons' in processed_data:
-        for season in processed_data['seasons']:
-            if 'episodes' in season:
-                for episode_data in season['episodes']:
-                    # Assuming a unique identifier can be created from season and episode number
-                    episode_id = f"S{season.get('season_number', '0'):02d}E{episode_data.get('episode_number', '0'):02d}"
-                    episode_watched = False
-                    latest_played = None
-                    triggering_kodi_path = None
+def map_watched_status_to_episodes(all_watched_data, processed_data, series_path, kodi_network_base_path, config):
+    """
+    Maps watched status from Kodi data to episodes in the processed data.
+    """
+    episode_watched_status = {'series_name': processed_data.get('series_name', ''), 'seasons': []}
 
-                    for file_info in episode_data.get('files', []):
-                        file_path = file_info.get('path')
-                        if file_path:
-                            relative_path = os.path.relpath(file_path, local_series_path).replace('\\', '/')
-                            potential_kodi_path = os.path.join(kodi_network_base_path, relative_path).replace('\\', '/')
+    for season_data in processed_data.get('seasons', []):
+        season_number = season_data.get('season_number')
+        episodes = []
+        for episode in season_data.get('episodes', []):
+            episode_number = episode.get('episode_number')
+            watched = False
+            last_played = None
 
-                            for kodi_path, watched_info in kodi_watched_data.items():
-                                if potential_kodi_path.lower() == kodi_path.lower() and watched_info['watched']:
-                                    episode_watched = True
-                                    if watched_info['last_played']:
-                                        if latest_played is None or watched_info['last_played'] > latest_played:
-                                            latest_played = watched_info['last_played']
-                                            triggering_kodi_path = kodi_path
-                                    break  # Found a match for this local file
-                        if episode_watched:
-                            break  # If the episode is watched due to one file, no need to check others
+            for file_info in episode.get('files', []):
+                local_file_path = file_info.get('path', '').replace('\\', '/')
+                local_filename_base, _ = os.path.splitext(os.path.basename(local_file_path).lower())
 
-                    if episode_id:
-                        episode_watched_status[episode_id] = {
-                            "watched": episode_watched,
-                            "last_played": latest_played,
-                            "title": episode_data.get('titles', [None])[0],  # Assuming first title is primary
-                            "season": season.get('season_number'),
-                            "episode": episode_data.get('episode_number'),
-                            "triggering_kodi_path": triggering_kodi_path
-                        }
+                for kodi_path, kodi_watched_info in all_watched_data.items():
+                    kodi_filename_base, _ = os.path.splitext(os.path.basename(kodi_path).lower())
+
+                    if local_filename_base == kodi_filename_base:
+                        watched = kodi_watched_info['watched']
+                        last_played = kodi_watched_info.get('last_played')
+                        break  # Found a match, no need to check other Kodi paths
+                if watched:
+                    break # Found a watched file for this episode, move to the next
+
+            episodes.append({
+                'episode_number': episode_number,
+                'watched': watched,
+                'last_played': last_played
+            })
+        episode_watched_status['seasons'].append({'season_number': season_number, 'episodes': episodes})
+
     return episode_watched_status
+
+def save_kodi_watched_data(output_file, data):
+    """Saves the Kodi watched data to a JSON file."""
+    try:
+        os.makedirs(os.path.dirname(output_file), exist_ok=True)
+        with open(output_file, 'w') as f:
+            json.dump(data, f, indent=4)
+        logging.info(f"Kodi watched data saved to: {output_file}")
+    except Exception as e:
+        logging.error(f"Error saving Kodi watched data: {e}")
 
 def save_kodi_watched_data(output_file_path, watched_data):
     """Saves the Kodi watched data to a JSON file."""
     with open(output_file_path, 'w') as f:
         json.dump(watched_data, f, indent=4)
     logging.info(f"Kodi watched data saved to: {output_file_path}")
+
+def query_kodi_watched_status(db_path):
+    """Queries a single Kodi database for watched files (playCount > 0) and their full paths."""
+    watched_files = {}
+    try:
+        conn = sqlite3.connect(db_path)
+        cursor = conn.cursor()
+        sql_query = """
+            SELECT
+                p.strPath || f.strFilename AS KodiFilePath,
+                f.playCount,
+                f.lastPlayed
+            FROM files f
+            JOIN path p ON f.idPath = p.idPath
+            WHERE f.playCount > 0
+        """
+        cursor.execute(sql_query)
+        results = cursor.fetchall()
+        for row in results:
+            kodi_file_path = row[0]
+            play_count = row[1]
+            last_played = row[2]
+            watched_files[kodi_file_path] = {"watched": True, "last_played": last_played}
+    except sqlite3.Error as e:
+        logging.error(f"Database error in {db_path}: {e}")
+    finally:
+        if conn:
+            conn.close()
+    return watched_files
 
 def main():
     parser = argparse.ArgumentParser(description='Extract watched status from Kodi for a specific TV series.')
@@ -184,7 +220,7 @@ def main():
     kodi_ip = config.get('kodi', 'kodi_ip')
     series_config = config['series']
     network_config = config['network_config']
-    kodi_share_name = network_config.get('kodi_shares', '').split(',')[0].strip() # Still using the first Kodi share for now
+    kodi_share_name = network_config.get('kodi_shares', '').split(',')[0].strip() # Using the first Kodi share for base path
     remote_db_path = '/storage/emulated/0/Android/data/org.xbmc.kodi/files/.kodi/userdata/Database/'
     local_db_dir = 'tmp/kodi_db'
     os.makedirs(local_db_dir, exist_ok=True)
@@ -229,21 +265,18 @@ def main():
         local_filename = os.path.basename(remote_db)
         local_db_file_path = os.path.join(local_db_dir, local_filename)
         if pull_kodi_database(kodi_ip, remote_db, local_db_dir): # Using remote_db directly
-            # Construct the Kodi network base path for the current series
-            kodi_network_base_path = f'smb://{kodi_ip}/{kodi_share_name}/{os.path.basename(series_path)}/'.replace('\\', '/')
-            logging.info(f"Querying watched status in {local_db_file_path} for path: {kodi_network_base_path}")
-            watched_data = query_kodi_watched_status(local_db_file_path, kodi_network_base_path)
+            logging.info(f"Querying watched status in {local_db_file_path} for watched files.")
+            watched_data = query_kodi_watched_status(local_db_file_path) # Corrected call: only pass the database path
             all_watched_data.update(watched_data)
 
     processed_file = f'data/{series_slug}/{series_name.replace(" ", "_")}_Processed.json'
     processed_data = load_processed_data(processed_file)
-    
+
     print(f"DEBUG: Type of processed_data: {type(processed_data)}")
     print(f"DEBUG: Content of processed_data (first 500 chars): {str(processed_data)[:500]}")
 
-    
     if processed_data:
-        episode_watched_status = map_watched_status_to_episodes(all_watched_data, processed_data, series_path, kodi_network_base_path)
+        episode_watched_status = map_watched_status_to_episodes(all_watched_data, processed_data, series_path, None, config) # Passing None for kodi_network_base_path as we are matching filenames
         output_watched_file = os.path.join('data', series_slug, f'{series_slug}_kodi_watched.json')
         os.makedirs(os.path.dirname(output_watched_file), exist_ok=True)
         save_kodi_watched_data(output_watched_file, episode_watched_status)
@@ -252,9 +285,15 @@ def main():
 
     # Clean up pulled databases (we are leaving them for inspection as per your request)
     # for filename in os.listdir(local_db_dir):
-    #     if filename.startswith("MyVideos") and filename.endswith(".db"):
-    #         os.remove(os.path.join(local_db_dir, filename))
-    #         logging.info(f"Deleted pulled database file: {os.path.join(local_db_dir, filename)}")
+    #    if filename.startswith("MyVideos") and filename.endswith(".db"):
+    #        os.remove(os.path.join(local_db_dir, filename))
+    #        logging.info(f"Deleted pulled database file: {os.path.join(local_db_dir, filename)}")
 
 if __name__ == "__main__":
     main()
+    
+    # Clean up pulled databases (we are leaving them for inspection as per your request)
+    # for filename in os.listdir(local_db_dir):
+    #     if filename.startswith("MyVideos") and filename.endswith(".db"):
+    #         os.remove(os.path.join(local_db_dir, filename))
+    #         logging.info(f"Deleted pulled database file: {os.path.join(local_db_dir, filename)}")
