@@ -127,6 +127,7 @@ def merge_provider_data(provider_files: list, output_json: str, config: ConfigPa
     for provider in providers_in_preference_order: # Iterate through providers in preference order
         json_file = next((f for f in provider_files if f.endswith(f"{provider}.json")), None)
         if not json_file or not os.path.exists(json_file):
+            # ... (existing error logging) ...
             provider_logger.error(f"Missing or invalid JSON for {provider}")
             continue
 
@@ -136,9 +137,12 @@ def merge_provider_data(provider_files: list, output_json: str, config: ConfigPa
             with open(json_file, "r", encoding="utf-8") as f: # Specify encoding for safety
                 data = json.load(f)
             provider_logger.info(f"Loaded {provider} JSON")
+            # INSERT LOGGING HERE (1 of 4)
+            provider_logger.debug(f"MERGE DEBUG: Loaded {provider} JSON - First 5 keys: {list(data.keys())[:5]}")
 
             # Explicitly check if data is a dictionary
             if not isinstance(data, dict):
+                # ... (existing error logging) ...
                 provider_logger.error(f"Invalid JSON format for {provider}: expected dict, got {type(data).__name__}. Content (first 100 chars): {str(data)[:100]}")
                 continue # Skip to next provider if data is not a dict
             
@@ -224,9 +228,13 @@ def merge_provider_data(provider_files: list, output_json: str, config: ConfigPa
                         episode_copy = episode.copy()
                         episode_copy['provider'] = provider # Store provider for later merging
                         unique_season_0_episodes_versions[special_key].append(episode_copy)
-                        provider_logger.debug(f"Collected special '{episode.get('title')}' from {provider} (key: {special_key})")
+                        
+                        # INSERT LOGGING HERE (2 of 4 --> this one had an existing log function to be restored)
+                        provider_logger.debug(f"MERGE DEBUG: Collected special '{episode.get('title')}' from {provider} (key: {special_key}) - Data: {episode}")
+                        
+                        # -existing logging to restore -> provider_logger.debug(f"Collected special '{episode.get('title')}' from {provider} (key: {special_key})")
 
-                else:
+                else:  # This 'else' block is for regular seasons (non-season 0)
                     # Find or create the merged season
                     merged_season = next((s for s in merged_data["seasons"] if s["season_number"] == season_num), None)
                     if not merged_season:
@@ -245,22 +253,27 @@ def merge_provider_data(provider_files: list, output_json: str, config: ConfigPa
                         episodes_for_regular_season = []
 
                     for episode in episodes_for_regular_season:
-                        episode_num = episode.get("episode_number")
-                        if episode_num is None: # Skip if episode_number is missing for regular season
+                        raw_episode_num = episode.get("episode_number") # Get the raw value first
+                        if raw_episode_num is None: # Skip if episode_number is missing for regular season
                             provider_logger.warning(f"Skipping episode from {provider} (Season {season_num}) due to missing 'episode_number'. Episode data: {episode}")
                             continue
                         
                         # Ensure episode_num is an integer for comparison
                         try:
-                            episode_num = int(episode_num)
+                            episode_num_int = int(raw_episode_num) # Assign to the new variable name
                         except (ValueError, TypeError):
-                            provider_logger.warning(f"Invalid episode_number '{episode_num}' from {provider} (Season {season_num}), skipping.")
+                            provider_logger.warning(f"Invalid episode_number '{raw_episode_num}' from {provider} (Season {season_num}), skipping.")
                             continue
+						
+						# HERE IS WHERE YOU WOULD INSERT YOUR LOGGING STATEMENT (and the subsequent logic)
+                        # Now episode_num_int is defined and can be used in your debug statement
+                        provider_logger.debug(f"MERGE DEBUG: {provider} - Season {season_num}, Episode {episode_num_int}: Processing episode.")
 
-                        merged_episode = next((e for e in merged_season["episodes"] if e["episode_number"] == episode_num), None)
+
+                        merged_episode = next((e for e in merged_season["episodes"] if e["episode_number"] == episode_num_int), None) # Use episode_num_int for comparison
                         if not merged_episode:
                             merged_episode = {
-                                "episode_number": episode_num,
+                                "episode_number": episode_num_int, # Use episode_num_int here
                                 "titles": {},
                                 "overviews": {},
                                 "ids": {},
@@ -273,6 +286,10 @@ def merge_provider_data(provider_files: list, output_json: str, config: ConfigPa
                         episode_overview = episode.get("overview", "")
                         episode_id = episode.get("id")
                         episode_air_date = episode.get("air_date", "")
+
+                        # INSERT LOGGING HERE (3 of 4 )
+                        provider_logger.debug(f"MERGE DEBUG: {provider} - Season {season_num}, Episode {episode_num_int}: Processing episode.")
+                        
 
                         merged_episode["titles"][provider] = episode_title or ""
                         merged_episode["overviews"][provider] = episode_overview or ""
@@ -308,6 +325,8 @@ def merge_provider_data(provider_files: list, output_json: str, config: ConfigPa
         # Populate provider-specific dictionaries and find existing episode number/synthetic flag
         for ep_version in episode_versions:
             provider = ep_version['provider']
+            # INSERT LOGGING HERE (4 of 4)
+            provider_logger.debug(f"Season 0 - Merging from {provider}: Title='{ep_version.get('title')}', Overview='{ep_version.get('overview')}'")
 
             merged_special_episode["titles"][provider] = ep_version.get("title", "")
             merged_special_episode["overviews"][provider] = ep_version.get("overview", "")
