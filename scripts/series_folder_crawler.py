@@ -196,12 +196,14 @@ def normalize(s: str) -> str:
 def load_paths(series_name: str):
     """
     Loads configuration paths and matching thresholds from 'config/paths.txt'.
+    Uses separate variables for the series folder slug and the metadata filename.
     """
     global ROOT_FOLDER, METADATA_JSON, OUTPUT_JSON, LOG_PATH, \
            PASS4_THRESHOLD, PASS2_THRESHOLD, PASS3_THRESHOLD, SERIES_NAME, SERIES_FOLDER_SLUG
 
     SERIES_NAME = series_name
     SERIES_FOLDER_SLUG = SERIES_NAME.lower().replace(" ", "_").replace("'", "").replace('-', '_')
+    METADATA_FILENAME = f"{SERIES_NAME}.json"
 
     config_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "config", "paths.txt")
     if not os.path.exists(config_path):
@@ -215,7 +217,7 @@ def load_paths(series_name: str):
     config_parser.read(config_path)
 
     LOG_PATH = config_parser.get("general", "LOG_PATH", fallback=LOG_PATH)
-    
+
     setup_logger(SERIES_FOLDER_SLUG, LOG_PATH)
     logger.info(f"Loaded configuration from: {config_path}")
 
@@ -226,10 +228,10 @@ def load_paths(series_name: str):
            config_parser.get("series", series_key).strip('"') == series_name:
 
             ROOT_FOLDER = config_parser.get("series", f"series_path_{i}", fallback="")
-            METADATA_JSON = os.path.join(JSON_FOLDER, SERIES_FOLDER_SLUG, f"{series_name}.json")
-            OUTPUT_JSON = os.path.join(JSON_FOLDER, SERIES_FOLDER_SLUG, f"{series_name.replace(' ', '_')}_Processed.json")
+            METADATA_JSON = os.path.join(JSON_FOLDER, SERIES_FOLDER_SLUG, METADATA_FILENAME)
+            OUTPUT_JSON = os.path.join(JSON_FOLDER, SERIES_FOLDER_SLUG, f"{SERIES_NAME.replace(' ', '_')}_Processed.json")
 
-            series_config_key_slug = series_name.replace(" ", "_").replace("'", "")
+            series_config_key_slug = SERIES_NAME.replace(" ", "_").replace("'", "")
             PASS4_THRESHOLD = int(config_parser.get("thresholds", f"pass4_threshold_{series_config_key_slug}", fallback=str(PASS4_THRESHOLD)))
             PASS2_THRESHOLD = float(config_parser.get("thresholds", f"pass2_threshold_{series_config_key_slug}", fallback=str(PASS2_THRESHOLD)))
             PASS3_THRESHOLD = float(config_parser.get("thresholds", f"pass3_threshold_{series_config_key_slug}", fallback=str(PASS3_THRESHOLD)))
@@ -668,4 +670,3 @@ if __name__ == "__main__":
         sys.stderr.write(f"ERROR: An unhandled error occurred: {e}\n")
         sys.stderr.flush()
         sys.exit(1)
-
