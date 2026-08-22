@@ -8,10 +8,10 @@ import sqlite3
 
 # kodi_db_exporter.py Version 1.3
 # this version successfully cleans the temp folder called Database, and then writes the new kodi database files 
-# It should be noted that if a command prompt is open and has been used in the tempp/Database folder, the script will not complete, but will throw an error.
+# It should be noted that if a command prompt is open and has been used in the temp/Database folder, the script will not complete, but will throw an error.
 
 # ---------------------- CONFIG ----------------------
-def load_paths(paths_file="paths.txt"):
+def load_paths(paths_file="config/paths.txt"):
     paths = {}
     with open(paths_file, "r", encoding="utf-8") as f:
         for line in f:
@@ -59,7 +59,7 @@ def pull_kodi_dbs(adb_path, temp_folder, log_path):
 
 # ---------------------- MAIN ----------------------
 def main():
-    paths = load_paths("paths.txt")
+    paths = load_paths("config/paths.txt")
     log_path = paths.get("LOG_PATH", ".")
     write_log(log_path, "Starting kodi_db_exporter.py Version 1.3")
 
