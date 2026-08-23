@@ -44,13 +44,37 @@ import os
 import json
 import argparse
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 import shutil
 from pathlib import Path
 import configparser
 import sys
 import re
 import traceback # Import traceback for detailed error info
+import copy
+import uuid
+
+try:
+    from scripts.episode_history import (
+        atomic_write_history,
+        episode_key,
+        load_history,
+        merge_processed_episodes,
+        normalize_windows_path,
+        record_verified_transition,
+    )
+except ImportError:
+    from episode_history import (
+        atomic_write_history,
+        episode_key,
+        load_history,
+        merge_processed_episodes,
+        normalize_windows_path,
+        record_verified_transition,
+    )
+
+PREVIEW_ROOT = Path(r"E:\MediaOrganizerWork\Preview")
+QUARANTINE_ROOT = Path(r"E:\MediaOrganizerWork\Quarantine")
 
 # --- Global Debug Print for Very Early Execution ---
 sys.stdout.write("DEBUG: Script started. This should always appear.\n")
@@ -496,7 +520,110 @@ def create_nfo_file(series_name: str, episode: dict, output_path: Path, playcoun
 # ==============================================================================
 # File Organization Logic
 # ==============================================================================
-def organize_files(series_name: str, episodes: list, tv_library_path: str, move_files: bool, kodi_watched_data: dict, provider_priority_order: list):
+def move_selected_recording_with_verification(source_path: Path, destination_path: Path) -> tuple:
+    """Move the selected recording without overwriting and verify its recorded size."""
+    if destination_path.exists():
+        return False, "destination_collision", None
+    source_size = source_path.stat().st_size
+    try:
+        shutil.move(str(source_path), str(destination_path))
+    except Exception as exc:
+        return False, f"move_failed: {exc}", source_size
+    try:
+        if not destination_path.is_file():
+            return False, "verification_failed: destination file does not exist", source_size
+        if destination_path.stat().st_size != source_size:
+            return False, "verification_failed: destination size does not match source size", source_size
+    except OSError as exc:
+        return False, f"verification_failed: {exc}", source_size
+    return True, "moved_and_verified", source_size
+
+
+def unique_quarantine_path(path: Path) -> Path:
+    """Return a non-existing quarantine path so an earlier quarantine is never overwritten."""
+    if not path.exists():
+        return path
+    counter = 1
+    while True:
+        candidate = path.with_name(f"{path.stem}_{counter}{path.suffix}")
+        if not candidate.exists():
+            return candidate
+        counter += 1
+
+
+def quarantine_file(source_path: Path, quarantine_dir: Path) -> Path:
+    """Move one rejected file to quarantine and return its recoverable location."""
+    quarantine_dir.mkdir(parents=True, exist_ok=True)
+    destination = unique_quarantine_path(quarantine_dir / source_path.name)
+    shutil.move(str(source_path), str(destination))
+    return destination
+
+
+def write_action_manifest(manifest_path: Path, manifest: dict) -> None:
+    """Atomically write a validated action manifest without damaging a prior manifest."""
+    if not isinstance(manifest, dict) or not isinstance(manifest.get("actions"), list):
+        raise ValueError("Action manifest must be an object containing an actions list")
+    for required_field in ("schema_version", "run_id", "started_at", "updated_at",
+                           "series", "mode", "run_status"):
+        if not manifest.get(required_field):
+            raise ValueError(f"Action manifest requires {required_field}")
+    payload = json.dumps(manifest, indent=2, ensure_ascii=False)
+    reparsed = json.loads(payload)
+    if not isinstance(reparsed, dict) or not isinstance(reparsed.get("actions"), list):
+        raise ValueError("Serialized action manifest has an invalid structure")
+    manifest_path.parent.mkdir(parents=True, exist_ok=True)
+    temp_path = manifest_path.with_name(f".{manifest_path.name}.{uuid.uuid4().hex}.tmp")
+    try:
+        with open(temp_path, "x", encoding="utf-8", newline="\n") as manifest_file:
+            manifest_file.write(payload)
+            manifest_file.write("\n")
+            manifest_file.flush()
+            os.fsync(manifest_file.fileno())
+        os.replace(temp_path, manifest_path)
+    except Exception:
+        try:
+            temp_path.unlink(missing_ok=True)
+        except OSError:
+            pass
+        raise
+
+
+def utc_manifest_timestamp() -> str:
+    """Return a sortable UTC timestamp suitable for JSON and filenames."""
+    return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+
+
+def create_action_manifest(series_name: str, move_files: bool, manifest_root: Path) -> tuple:
+    """Create one retained run journal plus the compatibility latest-manifest path."""
+    run_id = str(uuid.uuid4())
+    started_at = utc_manifest_timestamp()
+    manifest = {
+        "schema_version": 2,
+        "run_id": run_id,
+        "started_at": started_at,
+        "updated_at": started_at,
+        "series": series_name,
+        "mode": "move" if move_files else "preview",
+        "run_status": "in_progress",
+        "actions": [],
+    }
+    series_manifest_root = Path(manifest_root) / series_name
+    filename_timestamp = started_at.replace("-", "").replace(":", "").replace(".", "")
+    run_path = series_manifest_root / "manifests" / f"{filename_timestamp}_{run_id}.json"
+    latest_path = series_manifest_root / "file_organizer_manifest.json"
+    return manifest, run_path, latest_path
+
+
+def checkpoint_action_manifest(manifest: dict, run_path: Path, latest_path: Path) -> None:
+    """Durably checkpoint the retained run journal, then its latest snapshot."""
+    manifest["updated_at"] = utc_manifest_timestamp()
+    write_action_manifest(run_path, manifest)
+    write_action_manifest(latest_path, manifest)
+
+
+def organize_files(series_name: str, episodes: list, tv_library_path: str, move_files: bool,
+                   kodi_watched_data: dict, provider_priority_order: list,
+                   preview_root: Path = PREVIEW_ROOT, quarantine_root: Path = QUARANTINE_ROOT):
     """
     Organizes media files by creating NFOs, selecting the best file,
     and optionally moving/deleting files to a standardized library structure.
@@ -514,6 +641,21 @@ def organize_files(series_name: str, episodes: list, tv_library_path: str, move_
     sys.stdout.write(f"DEBUG: Entering organize_files for series: '{series_name}', move_files: {move_files}\n")
     sys.stdout.flush()
     logging.info(f"Starting file organization for '{series_name}'. Move files: {move_files}")
+    manifest_root = Path(quarantine_root) if move_files else Path(preview_root)
+    action_manifest, run_manifest_path, latest_manifest_path = create_action_manifest(
+        series_name, move_files, manifest_root)
+    checkpoint_action_manifest(action_manifest, run_manifest_path, latest_manifest_path)
+    actions = action_manifest["actions"]
+
+    # Import the current processed snapshot before any filesystem action. Preview reads
+    # existing production history but writes only a proposed copy under Preview.
+    production_history_path = (Path(tv_library_path) / series_name /
+                               ".media_organizer" / "episode_history.json")
+    history = load_history(production_history_path, series_name)
+    merge_processed_episodes(history, episodes)
+    history_path = (production_history_path if move_files else
+                    Path(preview_root) / series_name / ".media_organizer" / "episode_history.json")
+    atomic_write_history(history_path, history)
 
     for episode in episodes:
         season = episode.get("season_number")
@@ -582,16 +724,18 @@ def organize_files(series_name: str, episodes: list, tv_library_path: str, move_
         # Construct the new filename (e.g., "The A-Team - S01E01 - Pilot.ts")
         filename = f"{series_name} - S{season:02d}E{episode_num:02d} - {cleaned_title}{file_ext}"
         
-        # Construct the full output directory path for the episode
-        output_dir = Path(tv_library_path) / series_name / season_str
+        # Preview mirrors the real naming tree but is isolated from the TV library.
+        output_root = Path(tv_library_path) if move_files else Path(preview_root)
+        output_dir = output_root / series_name / season_str
         # Construct the full output path for the media file
         output_path = output_dir / filename
         
-        # Create NFO file regardless of 'move_files' flag, passing watched status and provider priority
-        create_nfo_file(series_name, episode, output_path,
-                        playcount=current_playcount,
-                        lastplayed=current_lastplayed,
-                        provider_priority_order=provider_priority_order)
+        # Preview NFOs are safe to create now. Move-mode NFOs wait for a verified media move.
+        if not move_files:
+            create_nfo_file(series_name, episode, output_path,
+                            playcount=current_playcount,
+                            lastplayed=current_lastplayed,
+                            provider_priority_order=provider_priority_order)
         
         # --- File Movement and Deletion Logic ---
         if best_file_to_move_info: # Only proceed if a best file was identified
@@ -613,54 +757,216 @@ def organize_files(series_name: str, episodes: list, tv_library_path: str, move_
                     if edl_to_delete.exists():
                         files_to_delete_paths.append(str(edl_to_delete))
             
-            # Ensure output directory exists before moving/deleting
-            os.makedirs(output_dir, exist_ok=True)
+            if move_files:
+                if not os.path.exists(best_file_to_move_path):
+                    logging.error(f"Source file for move not found: '{best_file_to_move_path}'.")
+                    actions.append({"episode": f"S{season:02d}E{episode_num:02d}",
+                                    "status": "source_missing", "source": best_file_to_move_path,
+                                    "destination": str(output_path)})
+                    checkpoint_action_manifest(
+                        action_manifest, run_manifest_path, latest_manifest_path)
+                    continue
 
-            if move_files: # Actual move and delete operation
-                # Move the best file
-                if os.path.exists(best_file_to_move_path):
+                # A collision blocks every write and cleanup action for this episode.
+                if output_path.exists():
+                    logging.error(f"Destination collision blocks episode: '{output_path}'")
+                    actions.append({"episode": f"S{season:02d}E{episode_num:02d}",
+                                    "status": "destination_collision", "source": best_file_to_move_path,
+                                    "destination": str(output_path)})
+                    checkpoint_action_manifest(
+                        action_manifest, run_manifest_path, latest_manifest_path)
+                    continue
+
+                os.makedirs(output_dir, exist_ok=True)
+                verified, status, source_size = move_selected_recording_with_verification(
+                    Path(best_file_to_move_path), output_path)
+                physical_move_succeeded = not status.startswith("move_failed")
+                action = {
+                    "episode": f"S{season:02d}E{episode_num:02d}",
+                    "status": status,
+                    "source": best_file_to_move_path,
+                    "intended_destination": str(output_path),
+                    "actual_destination": str(output_path) if physical_move_succeeded else None,
+                    "expected_size": source_size,
+                    "physical_action_succeeded": physical_move_succeeded,
+                    "history_recorded": False,
+                    "error": None if verified else status,
+                    "selected_sidecars": [],
+                    "quarantined": [],
+                }
+                actions.append(action)
+                # The physical selected-move result is durable before history is attempted.
+                checkpoint_action_manifest(
+                    action_manifest, run_manifest_path, latest_manifest_path)
+                if not verified:
+                    logging.error(f"Selected recording was not verified; preserving all alternatives: {status}")
+                    continue
+
+                logging.info(f"Moved and verified file: '{best_file_to_move_path}' -> '{output_path}'")
+                current_episode_key = episode_key(season, episode_num)
+                try:
+                    history_candidate = copy.deepcopy(history)
+                    selected_recording_id = record_verified_transition(
+                        history_candidate, current_episode_key, best_file_to_move_path, str(output_path),
+                        "library", "verified_selected_move", selected=True)
+                    atomic_write_history(history_path, history_candidate)
+                except Exception as exc:
+                    action["status"] = "selected_move_succeeded_history_write_failed"
+                    action["error"] = str(exc)
+                    action["cleanup_stopped"] = True
+                    checkpoint_action_manifest(
+                        action_manifest, run_manifest_path, latest_manifest_path)
+                    logging.error(
+                        "Verified move was not recorded in durable history; preserving all alternatives: %s", exc)
+                    continue
+                history = history_candidate
+                action["selected_recording_id"] = selected_recording_id
+                action["history_recorded"] = True
+                action["status"] = "selected_move_and_history_recorded"
+                checkpoint_action_manifest(
+                    action_manifest, run_manifest_path, latest_manifest_path)
+
+                create_nfo_file(series_name, episode, output_path,
+                                playcount=current_playcount, lastplayed=current_lastplayed,
+                                provider_priority_order=provider_priority_order)
+
+                # Selected sidecars move only after the selected media has been verified.
+                selected_sidecar_failed = False
+                for ext in [".xml", ".edl"]:
+                    src_ext_path = Path(best_file_to_move_path).with_suffix(ext)
+                    dst_ext_path = output_path.with_suffix(ext)
+                    if not src_ext_path.exists():
+                        continue
+                    sidecar_action = {
+                        "source": str(src_ext_path),
+                        "intended_destination": str(dst_ext_path),
+                        "actual_destination": None,
+                        "physical_action_succeeded": False,
+                        "history_recorded": False,
+                        "error": None,
+                    }
+                    action["selected_sidecars"].append(sidecar_action)
+                    if dst_ext_path.exists():
+                        sidecar_action["status"] = "selected_sidecar_destination_collision"
+                        sidecar_action["error"] = "destination already exists"
+                        action["status"] = "selected_sidecar_move_failed"
+                        action["error"] = sidecar_action["error"]
+                        action["cleanup_stopped"] = True
+                        selected_sidecar_failed = True
+                        checkpoint_action_manifest(
+                            action_manifest, run_manifest_path, latest_manifest_path)
+                        break
                     try:
-                        shutil.move(best_file_to_move_path, output_path)
-                        logging.info(f"Moved file: '{best_file_to_move_path}' -> '{output_path}'")
-                        sys.stdout.write(f"DEBUG: Moved file: '{best_file_to_move_path}' -> '{output_path}'\n")
-                        sys.stdout.flush()
-                        
-                        # Move associated .xml and .edl files of the best file
-                        for ext in [".xml", ".edl"]:
-                            src_ext_path = Path(best_file_to_move_path).with_suffix(ext)
-                            dst_ext_path = output_path.with_suffix(ext)
-                            if src_ext_path.exists():
-                                shutil.move(src_ext_path, dst_ext_path)
-                                logging.info(f"Moved {ext}: '{src_ext_path}' -> '{dst_ext_path}'")
-                                sys.stdout.write(f"DEBUG: Moved {ext}: '{src_ext_path}' -> '{dst_ext_path}'\n")
-                                sys.stdout.flush()
-                    except Exception as e:
-                        logging.error(f"Error moving file '{best_file_to_move_path}' to '{output_path}': {e}")
-                        sys.stderr.write(f"DEBUG: Error moving file '{best_file_to_move_path}' to '{output_path}': {e}\n")
-                        sys.stderr.flush()
-                else:
-                    logging.warning(f"Source file for move not found: '{best_file_to_move_path}'. Skipping move.")
-                    sys.stdout.write(f"DEBUG: Source file for move not found: '{best_file_to_move_path}'\n")
-                    sys.stdout.flush()
+                        shutil.move(str(src_ext_path), str(dst_ext_path))
+                        sidecar_action["status"] = "selected_sidecar_moved"
+                        sidecar_action["actual_destination"] = str(dst_ext_path)
+                        sidecar_action["physical_action_succeeded"] = True
+                        checkpoint_action_manifest(
+                            action_manifest, run_manifest_path, latest_manifest_path)
+                    except Exception as exc:
+                        sidecar_action["status"] = "selected_sidecar_move_failed"
+                        sidecar_action["error"] = str(exc)
+                        action["status"] = "selected_sidecar_move_failed"
+                        action["error"] = str(exc)
+                        action["cleanup_stopped"] = True
+                        selected_sidecar_failed = True
+                        logging.error(
+                            "Selected sidecar move failed; preserving all alternatives: %s", exc)
+                        checkpoint_action_manifest(
+                            action_manifest, run_manifest_path, latest_manifest_path)
+                        break
 
-                # Delete other files
-                for file_to_delete_path in files_to_delete_paths:
-                    if os.path.exists(file_to_delete_path):
+                if selected_sidecar_failed:
+                    continue
+
+                # Rejected recordings and sidecars are quarantined, never deleted.
+                quarantine_dir = (Path(quarantine_root) / series_name / season_str /
+                                  f"S{season:02d}E{episode_num:02d}")
+                recording_source_paths = {
+                    normalize_windows_path(file_info.get("path", ""))
+                    for file_info in episode.get("files", []) if file_info.get("path")
+                }
+                for rejected_path_text in files_to_delete_paths:
+                    rejected_path = Path(rejected_path_text)
+                    if rejected_path.exists():
+                        intended_quarantine_path = quarantine_dir / rejected_path.name
+                        quarantine_action = {
+                            "episode": current_episode_key,
+                            "source": str(rejected_path),
+                            "intended_destination": str(intended_quarantine_path),
+                            "actual_destination": None,
+                            "physical_action_succeeded": False,
+                            "history_recorded": False,
+                            "error": None,
+                        }
+                        action["quarantined"].append(quarantine_action)
+                        checkpoint_action_manifest(
+                            action_manifest, run_manifest_path, latest_manifest_path)
                         try:
-                            os.remove(file_to_delete_path)
-                            logging.info(f"Deleted file: '{file_to_delete_path}'")
-                            sys.stdout.write(f"DEBUG: Deleted file: '{file_to_delete_path}'\n")
-                            sys.stdout.flush()
-                        except Exception as e:
-                            logging.error(f"Error deleting file '{file_to_delete_path}': {e}")
-                            sys.stderr.write(f"DEBUG: Error deleting file '{file_to_delete_path}': {e}\n")
-                            sys.stderr.flush()
-                    else:
-                        logging.debug(f"File to delete not found (already gone?): '{file_to_delete_path}'")
-                        sys.stdout.write(f"DEBUG: File to delete not found: '{file_to_delete_path}'\n")
-                        sys.stdout.flush()
+                            quarantined_path = quarantine_file(rejected_path, quarantine_dir)
+                        except Exception as exc:
+                            quarantine_action["status"] = "physical_quarantine_failed"
+                            quarantine_action["error"] = str(exc)
+                            action["status"] = "physical_quarantine_failed"
+                            action["error"] = str(exc)
+                            action["cleanup_stopped"] = True
+                            logging.error(f"Physical quarantine failed for '{rejected_path}': {exc}")
+                            checkpoint_action_manifest(
+                                action_manifest, run_manifest_path, latest_manifest_path)
+                            break
+
+                        quarantine_action["status"] = "physical_quarantine_succeeded"
+                        quarantine_action["actual_destination"] = str(quarantined_path)
+                        quarantine_action["physical_action_succeeded"] = True
+                        # Record the physical move before attempting its history transition.
+                        checkpoint_action_manifest(
+                            action_manifest, run_manifest_path, latest_manifest_path)
+                        if normalize_windows_path(str(rejected_path)) in recording_source_paths:
+                            try:
+                                history_candidate = copy.deepcopy(history)
+                                quarantine_recording_id = record_verified_transition(
+                                    history_candidate, current_episode_key, str(rejected_path), str(quarantined_path),
+                                    "quarantine", "verified_quarantine")
+                                atomic_write_history(history_path, history_candidate)
+                            except Exception as exc:
+                                quarantine_action["status"] = (
+                                    "physical_quarantine_succeeded_history_write_failed")
+                                quarantine_action["error"] = str(exc)
+                                action["status"] = (
+                                    "physical_quarantine_succeeded_history_write_failed")
+                                action["error"] = str(exc)
+                                action["cleanup_stopped"] = True
+                                logging.error(
+                                    "Physical quarantine succeeded but durable history write failed "
+                                    "for '%s' at '%s'; stopping cleanup: %s",
+                                    rejected_path, quarantined_path, exc)
+                                checkpoint_action_manifest(
+                                    action_manifest, run_manifest_path, latest_manifest_path)
+                                break
+                            history = history_candidate
+                            quarantine_action["recording_id"] = quarantine_recording_id
+                            quarantine_action["history_recorded"] = True
+                            quarantine_action["status"] = "quarantined_and_history_recorded"
+                            checkpoint_action_manifest(
+                                action_manifest, run_manifest_path, latest_manifest_path)
+                        else:
+                            quarantine_action["status"] = "companion_quarantined"
+                            checkpoint_action_manifest(
+                                action_manifest, run_manifest_path, latest_manifest_path)
+                        logging.info(f"Quarantined file: '{rejected_path}' -> '{quarantined_path}'")
+                if not action.get("cleanup_stopped"):
+                    action["status"] = "episode_completed"
+                    checkpoint_action_manifest(
+                        action_manifest, run_manifest_path, latest_manifest_path)
 
             else: # Dry Run
+                actions.append({"episode": f"S{season:02d}E{episode_num:02d}",
+                                "status": "preview", "source": best_file_to_move_path,
+                                "destination": str(Path(tv_library_path) / series_name / season_str / filename),
+                                "preview_nfo": str(output_path.with_suffix('.nfo')),
+                                "would_quarantine": files_to_delete_paths})
+                checkpoint_action_manifest(
+                    action_manifest, run_manifest_path, latest_manifest_path)
                 # Log what would happen (move)
                 if os.path.exists(best_file_to_move_path):
                     logging.info(f"DRY RUN: Would move file: '{best_file_to_move_path}' -> '{output_path}'")
@@ -682,8 +988,8 @@ def organize_files(series_name: str, episodes: list, tv_library_path: str, move_
                 # Log what would happen (delete)
                 for file_to_delete_path in files_to_delete_paths:
                     if os.path.exists(file_to_delete_path):
-                        logging.info(f"DRY RUN: Would delete file: '{file_to_delete_path}'")
-                        sys.stdout.write(f"DEBUG: DRY RUN: Would delete file: '{file_to_delete_path}'\n")
+                        logging.info(f"DRY RUN: Would quarantine file: '{file_to_delete_path}'")
+                        sys.stdout.write(f"DEBUG: DRY RUN: Would quarantine file: '{file_to_delete_path}'\n")
                         sys.stdout.flush()
                     else:
                         logging.debug(f"DRY RUN: File to delete not found (already gone?): '{file_to_delete_path}'")
@@ -693,6 +999,13 @@ def organize_files(series_name: str, episodes: list, tv_library_path: str, move_
             logging.info(f"No best file identified for S{season:02d}E{episode_num:02d} - '{title_for_filename}'. No files to move or delete.")
             sys.stdout.write(f"DEBUG: No best file identified for S{season:02d}E{episode_num:02d}\n")
             sys.stdout.flush()
+            actions.append({"episode": f"S{season:02d}E{episode_num:02d}",
+                            "status": "episode_completed_no_valid_recording"})
+            checkpoint_action_manifest(
+                action_manifest, run_manifest_path, latest_manifest_path)
+
+    action_manifest["run_status"] = "completed"
+    checkpoint_action_manifest(action_manifest, run_manifest_path, latest_manifest_path)
 
 
 # ==============================================================================
