@@ -79,9 +79,9 @@ Temporary files: tmp/.json (e.g., tmp/tvmaze.json) per enabled provider.
 
 
 Behavior:
-Read enabled providers from paths.txt’s [meta_providers] (e.g., tvmaze=enabled) in order (top to bottom), where order defines priority (tvmaze highest, rotten_tomatoes lowest).
+Read enabled providers from paths.txt's [meta_providers] in authoritative top-to-bottom priority order: TMDb first, Trakt second, TVMaze third, Rotten Tomatoes fourth, and Rotten Tomatoes 2 fifth.
 Call each provider’s get_metadata function to fetch metadata.
-Merge provider data into a single JSON with series_name, seasons, and episode details (titles, overview, ids, air_date), preserving raw provider data and respecting provider priority for downstream use (e.g., episode naming in series_folder_crawler.py, file_organizer.py).
+Merge provider data into a single JSON with series_name, seasons, and episode details (titles, overviews, ids, air_date), preserving raw provider data and respecting provider priority for downstream use (e.g., episode naming in series_folder_crawler.py, file_organizer.py).
 Delete tmp/.json before writing to ensure fresh data.
 
 
@@ -95,28 +95,32 @@ Structure:{
         {
           "episode_number": 1,
           "titles": {
-            "tvmaze": "Episode Title",
             "tmdb": "Title",
             "trakt": "Trakt Title",
-            "rotten_tomatoes": "RT Title"
+            "tvmaze": "Episode Title",
+            "rotten_tomatoes": "RT Title",
+            "rotten_tomatoes2": "RT2 Title"
           },
-          "overview": {
-            "tvmaze": "Description",
+          "overviews": {
             "tmdb": "Summary",
             "trakt": "Trakt Overview",
-            "rotten_tomatoes": "RT Overview"
+            "tvmaze": "Description",
+            "rotten_tomatoes": "RT Overview",
+            "rotten_tomatoes2": "RT2 Overview"
           },
           "ids": {
-            "tvmaze": 123,
             "tmdb": 456,
             "trakt": 789,
-            "rotten_tomatoes": "rt_123"
+            "tvmaze": 123,
+            "rotten_tomatoes": "rt_123",
+            "rotten_tomatoes2": "rt2_123"
           },
           "air_date": {
-            "tvmaze": "2023-01-01",
             "tmdb": "2023-01-01",
             "trakt": "2023-01-01",
-            "rotten_tomatoes": "2023-01-01"
+            "tvmaze": "2023-01-01",
+            "rotten_tomatoes": "2023-01-01",
+            "rotten_tomatoes2": "2023-01-01"
           }
         }
       ]
@@ -126,9 +130,9 @@ Structure:{
 
 
 Contains raw provider data (e.g., original titles, overviews) as provided by each provider, listed in [meta_providers] order.
-Fields like titles, overview, ids, air_date are dictionaries mapping provider names to their values.
+Fields like titles, overviews, ids, air_date are dictionaries mapping provider names to their values.
 Additional fields (e.g., subtitle) may be included based on provider data.
-Priority order (tvmaze first) is preserved for downstream scripts (series_folder_crawler.py, file_organizer.py) to select episode names (e.g., series_name_SxxEyy_episode-name).
+Priority order (TMDb first, Trakt second, TVMaze third, Rotten Tomatoes fourth, Rotten Tomatoes 2 fifth) is preserved for downstream scripts (series_folder_crawler.py, file_organizer.py) to select episode names (e.g., series_name_SxxEyy_episode-name).
 Normalization of names for matching is handled by series_folder_crawler.py, not in this JSON.
 
 
@@ -143,7 +147,7 @@ Configuration: paths.txt with [series] (e.g., series_path_1), OPERATION_MODE, CR
 
 
 Outputs:
-Organized files in series_path_X//Season / - SE_.ext, using episode names from highest-priority provider (e.g., tvmaze).
+Source recordings are read from the exact series_path_X configured for the series. Organized files are written beneath TV_LIBRARY_PATH/<series_name>/Season <N>/<series_name> - S<NN>E<NN>_<episode_name>.ext, using episode names from the highest-priority enabled provider (currently TMDb). Persistent organizer metadata is stored beneath TV_LIBRARY_PATH/<series_name>/.media_organizer/.
 Optional .nfo files if CREATE_NFO=true.
 
 
@@ -195,7 +199,7 @@ Maps series names to their file paths for series_folder_crawler.py and file_orga
 
 [meta_providers]:
 Format: =enabled (e.g., tvmaze=enabled).
-Providers: tvmaze, tmdb, trakt, rotten_tomatoes (in priority order).
+Providers in authoritative priority order: tmdb, trakt, tvmaze, rotten_tomatoes, rotten_tomatoes2.
 Unique names for each provider, representing distinct metadata sources.
 
 
@@ -221,10 +225,11 @@ series_name_2 = Ax Men
 series_path_2 = D:/NEXT PVR/RecordingDirectory/Ax Men
 
 [meta_providers]
-tvmaze=enabled
 tmdb=enabled
 trakt=enabled
+tvmaze=enabled
 rotten_tomatoes=enabled
+rotten_tomatoes2=enabled
 
 [tvmaze]
 API_KEY=your_tvmaze_api_key
@@ -259,10 +264,10 @@ config/paths.example.txt: Configuration template.
 
 Provider Precedence
 
-Providers are listed in config/paths.txt under [meta_providers] (e.g., tvmaze, tmdb, trakt, rotten_tomatoes).
-The order defines their precedence for downstream processes (e.g., crawler, file organizer), where higher-priority providers (e.g., tvmaze) are preferred for season/episode naming and overview selection.
+Providers are listed in config/paths.txt under [meta_providers] in authoritative top-to-bottom order: tmdb, trakt, tvmaze, rotten_tomatoes, rotten_tomatoes2.
+The order defines their precedence for downstream processes (e.g., crawler, file organizer): TMDb first, Trakt second, TVMaze third, Rotten Tomatoes fourth, and Rotten Tomatoes 2 fifth.
 All providers’ metadata is included in data/<series_slug>/<series_name>.json for each field (titles, overviews, ids, air_date), with no data discarded during merging.
-The order of provider keys in data/<series_slug>/<series_name>.json (e.g., titles: { "tvmaze": "...", "tmdb": "..." }) matches the order in [meta_providers] to ensure downstream scripts recognize the priority of providers.
+The order of provider keys in data/<series_slug>/<series_name>.json (e.g., titles: { "tmdb": "...", "trakt": "...", "tvmaze": "..." }) matches the order in [meta_providers] to ensure downstream scripts recognize the priority of providers.
 
 - **Detailed Inline Documentation**: 
 

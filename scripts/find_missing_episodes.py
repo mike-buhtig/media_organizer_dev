@@ -8,6 +8,19 @@ import re
 from pathlib import Path
 import io
 
+try:
+    from series_completeness import (
+        atomic_write_json,
+        compatibility_projection,
+        evaluate_series_completeness,
+    )
+except ImportError:  # Support import as scripts.find_missing_episodes in repository tests.
+    from scripts.series_completeness import (
+        atomic_write_json,
+        compatibility_projection,
+        evaluate_series_completeness,
+    )
+
 # --- Configuration Loading ---
 def load_config(config_path="config/paths.txt"):
     """Loads the configuration from paths.txt."""
@@ -156,23 +169,15 @@ def write_missing_json(config, series_name, missing_episodes):
 
 # --- Main Function ---
 def main():
+    """Compatibility entry point backed by the authoritative completeness engine."""
     args = parse_args()
-    config = load_config()
-    series_name = args.series_name
-
-    metadata = load_merged_metadata(config, series_name)
-    if not metadata:
-        return
-
-    watched_data = load_kodi_watched_data(config)
-    existing_from_kodi = get_existing_from_kodi(watched_data, series_name)
-    existing_from_nfo = get_existing_from_nfo(config, series_name)
-
-    all_existing = existing_from_kodi.union(existing_from_nfo)
-    expected_with_metadata = get_expected_episodes_with_metadata(metadata)
-    missing = find_missing_episodes(expected_with_metadata, all_existing)
-
-    write_missing_json(config, series_name, missing)
+    print("DEPRECATION: find_missing_episodes.py now emits a compatibility projection; "
+          "use the authoritative completeness.json for automation.")
+    report = evaluate_series_completeness(args.series_name)
+    projection = compatibility_projection(report)
+    output_path = Path(report["compatibility_output_path"])
+    atomic_write_json(output_path, projection)
+    print(f"Compatibility missing-episode projection written to {output_path}")
 
 if __name__ == "__main__":
     main()

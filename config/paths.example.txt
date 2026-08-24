@@ -55,15 +55,17 @@ series_name_6 = Ancient Top 10
 series_path_6 = D:/NEXT PVR/RecordingDirectory/Ancient Top 10
 series_name_7 = Ancient Engineering
 series_path_7 = D:/NEXT PVR/RecordingDirectory/Ancient Engineering
+series_name_8 = Million Dollar House Hunters
+series_path_8 = D:/NEXT PVR/RecordingDirectory/Million Dollar House Hunters
 
 [meta_providers]
 # Format: <name>=enabled
 # Providers are loaded dynamically from scripts/providers/<name>.py
 # Order (top to bottom) defines priority for metadata merging and episode naming in Season_Episode_builder.py, series_folder_crawler.py, file_organizer.py:
-# tvmaze (highest), tmdb, trakt, rotten_tomatoes (lowest, crowd-sourced but valuable for some platforms like Samsung TV Plus)
-tvmaze=enabled
+# TMDb (first), Trakt (second), TVMaze (third), Rotten Tomatoes (fourth), Rotten Tomatoes 2 (fifth)
 tmdb=enabled
 trakt=enabled
+tvmaze=enabled
 rotten_tomatoes=enabled
 rotten_tomatoes2=enabled
 
@@ -111,3 +113,9 @@ pass3_threshold_Ax_Men = 0.80
 # Output paths for file_organizer.py
 TV_LIBRARY_PATH = E:/media_library/tv_series
 MOVIE_LIBRARY_PATH = E:/media_library/movies
+
+[workspace]
+PREVIEW_ROOT = E:/MediaOrganizerWork/Preview
+QUARANTINE_ROOT = E:/MediaOrganizerWork/Quarantine
+TEST_ROOT = E:/MediaOrganizerWork/Test
+REPORT_ROOT = E:/MediaOrganizerWork/Reports

@@ -46,12 +46,13 @@ Format: =, where:
 
 
 Priority Order: The order of providers in [meta_providers] (top to bottom) defines their preference for metadata merging and episode naming in Season_Episode_builder.py, series_folder_crawler.py, and file_organizer.py. For example:[meta_providers]
-tvmaze=enabled
 tmdb=enabled
 trakt=enabled
+tvmaze=enabled
 rotten_tomatoes=enabled
+rotten_tomatoes2=enabled
 
-tvmaze (first) has the highest priority, rotten_tomatoes (last) the lowest, due to its crowd-sourced nature, though it’s valuable for cases like Samsung TV Plus episode titles/overviews.
+Provider priority is authoritative from top to bottom: TMDb first, Trakt second, TVMaze third, Rotten Tomatoes fourth, and Rotten Tomatoes 2 fifth.
 This order is preserved in data//.json and used by downstream scripts to select episode names (e.g., series_name_SxxEyy_episode-name).
 Scripts must read [meta_providers] to determine which providers are enabled and their priority.
 Only providers with enabled status and a corresponding scripts/providers/.py are processed.
@@ -164,7 +165,7 @@ Update existing scripts (e.g., Season_Episode_builder.py) to remove hard-coded p
 
 Provider Precedence
 
-The order in [meta_providers] determines precedence for downstream naming and overview selection, with tvmaze as the primary source, followed by tmdb, trakt, and rotten_tomatoes.
+The order in [meta_providers] determines precedence for downstream naming and overview selection: TMDb first, Trakt second, TVMaze third, Rotten Tomatoes fourth, and Rotten Tomatoes 2 fifth.
 Merged metadata in data/<series_slug>/<series_name>.json includes all providers’ data for each field, with provider keys ordered as in [meta_providers] to reflect priority for downstream scripts.
 
 Logging (Season_Episode_builder.py)
