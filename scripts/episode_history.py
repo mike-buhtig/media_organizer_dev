@@ -35,6 +35,9 @@ def validate_history(history: dict) -> None:
         raise ValueError("Episode history episodes must be an object")
     if not isinstance(history.get("unresolved_observations"), list):
         raise ValueError("Episode history unresolved_observations must be an array")
+    for observation in history["unresolved_observations"]:
+        if isinstance(observation, dict) and observation.get("observation_type") == "kodi_watched":
+            _validate_kodi_observation(observation, matched=False)
     for history_episode_id, episode in history["episodes"].items():
         if episode.get("history_episode_id") != history_episode_id:
             raise ValueError("Episode key and history_episode_id disagree")
@@ -43,6 +46,48 @@ def validate_history(history: dict) -> None:
         for recording in episode["recordings"]:
             if not recording.get("recording_id") or not isinstance(recording.get("paths"), list):
                 raise ValueError("Recording requires recording_id and paths")
+        watched_evidence = episode.get("watched_evidence")
+        if watched_evidence is not None:
+            _validate_watched_evidence(watched_evidence)
+
+
+def _validate_kodi_observation(observation: dict, matched: bool) -> None:
+    """Validate additive Kodi evidence without changing recording identity rules."""
+    required = (
+        "observation_id", "source_id", "device_id", "database_name",
+        "database_version", "database_fingerprint", "observed_kodi_path",
+        "normalized_kodi_path", "playCount", "lastPlayed", "observed_at",
+        "match_method",
+    )
+    if not isinstance(observation, dict) or any(key not in observation for key in required):
+        raise ValueError("Kodi observation is missing required provenance")
+    play_count = observation["playCount"]
+    if isinstance(play_count, bool) or not isinstance(play_count, (int, float)):
+        raise ValueError("Kodi observation playCount must be numeric")
+    if matched:
+        matched_fields = (
+            "matched_history_episode_id", "matched_recording_id",
+            "matched_historical_path",
+        )
+        if any(not observation.get(key) for key in matched_fields):
+            raise ValueError("Matched Kodi observation is missing history identity")
+
+
+def _validate_watched_evidence(watched_evidence: dict) -> None:
+    """Validate the optional schema-1 watched-evidence extension."""
+    if not isinstance(watched_evidence, dict):
+        raise ValueError("watched_evidence must be an object")
+    observations = watched_evidence.get("observations")
+    aggregate = watched_evidence.get("aggregate")
+    if not isinstance(observations, list) or not isinstance(aggregate, dict):
+        raise ValueError("watched_evidence requires observations and aggregate")
+    for observation in observations:
+        _validate_kodi_observation(observation, matched=True)
+    if not isinstance(aggregate.get("watched"), bool):
+        raise ValueError("watched aggregate must be boolean")
+    play_count = aggregate.get("playCount")
+    if isinstance(play_count, bool) or not isinstance(play_count, (int, float)):
+        raise ValueError("watched aggregate playCount must be numeric")
 
 
 def load_history(path: Path, series_name: str) -> dict:
